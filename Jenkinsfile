@@ -81,7 +81,7 @@ spec:
                     sh '''
                     python -m pip install --upgrade pip
                     pip install -r requirements.txt
-                    pip install coverage pytest pytest-cov
+                    pip install pytest pytest-django pytest-cov coverage
                     '''
                 }
             }
@@ -91,11 +91,12 @@ spec:
             steps {
                 container('python') {
                     sh '''
-                    coverage run --source='.' manage.py test
-                    coverage report -m
-                    coverage xml
+                    pytest --ds=careerlift.settings \
+                        --junitxml=reports/junit.xml \
+                        --cov=. \
+                        --cov-report=xml:coverage.xml
                     '''
-                    junit '**/test-reports/*.xml'
+                    junit 'reports/junit.xml'
                 }
             }
         }

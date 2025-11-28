@@ -3,7 +3,30 @@ python-dotenv==1.1.1
 sqlparse==0.5.3
 tzdata==2025.2
 asgiref==3.9.1
+
+# Database (MySQL)
 mysql-connector-python==9.5.0
+
+# Media / Image handling
 Pillow==12.0.0
-crispy-tailwind==1.0.3
+
+# Forms & UI
 django-crispy-forms==2.1
+crispy-tailwind==1.0.3
+
+# REST API (Recommended for production & mobile/React frontend)
+djangorestframework==3.15.2
+
+# Deployment
+gunicorn==23.0.0
+whitenoise==6.7.0
+
+# Testing & Coverage (required for your Jenkins pipeline)
+pytest==7.4.4
+pytest-django==4.8.0
+pytest-cov==4.1.0
+coverage==7.5.0
+
+# Linting/Formatting (Optional but useful)
+black==24.10.0
+flake8==7.1.1

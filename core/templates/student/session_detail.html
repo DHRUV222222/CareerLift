@@ -1,0 +1,191 @@
+{% extends 'base.html' %}
+
+{% block title %}Session Details - CareerLift{% endblock %}
+
+{% block content %}
+<div class="container mx-auto px-4 py-8">
+    <div class="max-w-4xl mx-auto">
+        <div class="bg-white rounded-lg shadow-md overflow-hidden">
+            <!-- Session Header -->
+            <div class="px-6 py-4 border-b border-gray-200">
+                <div class="flex justify-between items-start">
+                    <div>
+                        <h1 class="text-2xl font-bold text-gray-800">{{ session.title }}</h1>
+                        <div class="flex items-center mt-1">
+                            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium 
+                                {% if session.status == 'completed' %}bg-green-100 text-green-800
+                                {% elif session.status == 'cancelled' %}bg-red-100 text-red-800
+                                {% elif session.status == 'accepted' %}bg-blue-100 text-blue-800
+                                {% else %}bg-yellow-100 text-yellow-800{% endif %}">
+                                {{ session.get_status_display }}
+                            </span>
+                            <span class="ml-2 text-sm text-gray-500">
+                                • {{ session.scheduled_time|date:"F j, Y" }} at {{ session.scheduled_time|time:"g:i A" }}
+                            </span>
+                        </div>
+                    </div>
+                    
+                    {% if session.status == 'requested' or session.status == 'accepted' %}
+                    <div class="flex space-x-2">
+                        {% if request.user == session.student and session.status == 'requested' %}
+                            <a href="{% url 'core:sessions:update_session' session.pk %}" 
+                               class="inline-flex items-center px-3 py-1.5 border border-transparent text-xs font-medium rounded shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
+                                <i class="fas fa-edit mr-1"></i> Edit
+                            </a>
+                        {% endif %}
+                        
+                        {% if session.status == 'requested' or session.status == 'accepted' %}
+                            <form method="post" action="{% url 'core:sessions:cancel_session' session.pk %}" class="inline">
+                                {% csrf_token %}
+                                <button type="submit" 
+                                        onclick="return confirm('Are you sure you want to cancel this session?')"
+                                        class="inline-flex items-center px-3 py-1.5 border border-transparent text-xs font-medium rounded shadow-sm text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500">
+                                    <i class="fas fa-times mr-1"></i> Cancel
+                                </button>
+                            </form>
+                        {% endif %}
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+            
+            <div class="px-6 py-6">
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
+                    <!-- Session Details -->
+                    <div class="md:col-span-2">
+                        <div class="bg-gray-50 p-4 rounded-lg">
+                            <h3 class="text-lg font-medium text-gray-900 mb-3">Session Details</h3>
+                            
+                            <div class="space-y-4">
+                                <div>
+                                    <dt class="text-sm font-medium text-gray-500">Date & Time</dt>
+                                    <dd class="mt-1 text-sm text-gray-900">
+                                        {{ session.scheduled_time|date:"l, F j, Y" }}<br>
+                                        {{ session.scheduled_time|time:"g:i A" }} - 
+                                        {{ session.end_time|time:"g:i A" }}
+                                        ({{ session.duration_minutes }} minutes)
+                                    </dd>
+                                </div>
+                                
+                                <div>
+                                    <dt class="text-sm font-medium text-gray-500">Description</dt>
+                                    <dd class="mt-1 text-sm text-gray-900 whitespace-pre-line">
+                                        {{ session.description|default:"No description provided." }}
+                                    </dd>
+                                </div>
+                                
+                                {% if session.meeting_link and session.status == 'accepted' %}
+                                <div>
+                                    <dt class="text-sm font-medium text-gray-500">Meeting Link</dt>
+                                    <dd class="mt-1 text-sm">
+                                        <a href="{{ session.meeting_link }}" target="_blank" 
+                                           class="text-blue-600 hover:text-blue-800 hover:underline">
+                                            {{ session.meeting_link }}
+                                            <i class="fas fa-external-link-alt ml-1 text-xs"></i>
+                                        </a>
+                                    </dd>
+                                </div>
+                                {% endif %}
+                            </div>
+                        </div>
+                        
+                        {% if session.status == 'completed' and request.user == session.student %}
+                        <div class="mt-6 bg-yellow-50 p-4 rounded-lg">
+                            <h3 class="text-lg font-medium text-gray-900 mb-3">Leave Feedback</h3>
+                            <p class="text-sm text-gray-600 mb-4">
+                                Help improve our platform by providing feedback about your session with {{ session.mentor.get_full_name }}.
+                            </p>
+                            <a href="{% url 'core:feedback_create' session_id=session.id %}" 
+                               class="inline-flex items-center px-3 py-1.5 border border-transparent text-sm font-medium rounded shadow-sm text-white bg-yellow-600 hover:bg-yellow-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-yellow-500">
+                                <i class="fas fa-star mr-1"></i> Leave Feedback
+                            </a>
+                        </div>
+                        {% endif %}
+                    </div>
+                    
+                    <!-- Participant Information -->
+                    <div>
+                        <div class="bg-white border border-gray-200 rounded-lg overflow-hidden">
+                            <div class="p-4 border-b border-gray-200 bg-gray-50">
+                                <h3 class="text-sm font-medium text-gray-900">Participants</h3>
+                            </div>
+                            
+                            <div class="divide-y divide-gray-200">
+                                <!-- Mentor -->
+                                <div class="p-4">
+                                    <div class="flex items-start">
+                                        <div class="h-10 w-10 rounded-full bg-gray-200 flex-shrink-0 flex items-center justify-center overflow-hidden">
+                                            {% if session.mentor.profile_picture %}
+                                                <img src="{{ session.mentor.profile_picture.url }}" alt="{{ session.mentor.get_full_name }}" class="h-full w-full object-cover">
+                                            {% else %}
+                                                <span class="text-sm text-gray-500">{{ session.mentor.first_name|first|upper }}{{ session.mentor.last_name|first|upper }}</span>
+                                            {% endif %}
+                                        </div>
+                                        <div class="ml-3">
+                                            <p class="text-sm font-medium text-gray-900">{{ session.mentor.get_full_name }}</p>
+                                            <p class="text-xs text-gray-500">Mentor</p>
+                                            {% if session.mentor.mentor.title %}
+                                                <p class="text-xs text-gray-600">{{ session.mentor.mentor.title }}</p>
+                                            {% endif %}
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <!-- Student -->
+                                <div class="p-4">
+                                    <div class="flex items-start">
+                                        <div class="h-10 w-10 rounded-full bg-gray-200 flex-shrink-0 flex items-center justify-center overflow-hidden">
+                                            {% if session.student.profile_picture %}
+                                                <img src="{{ session.student.profile_picture.url }}" alt="{{ session.student.get_full_name }}" class="h-full w-full object-cover">
+                                            {% else %}
+                                                <span class="text-sm text-gray-500">{{ session.student.first_name|first|upper }}{{ session.student.last_name|first|upper }}</span>
+                                            {% endif %}
+                                        </div>
+                                        <div class="ml-3">
+                                            <p class="text-sm font-medium text-gray-900">{{ session.student.get_full_name }}</p>
+                                            <p class="text-xs text-gray-500">Student</p>
+                                            {% if session.student.university %}
+                                                <p class="text-xs text-gray-600">{{ session.student.university }}</p>
+                                            {% endif %}
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            {% if session.status == 'accepted' and session.meeting_link %}
+                            <div class="p-4 border-t border-gray-200 bg-blue-50">
+                                <a href="{{ session.meeting_link }}" target="_blank" 
+                                   class="w-full inline-flex justify-center items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
+                                    <i class="fas fa-video mr-2"></i> Join Meeting
+                                </a>
+                            </div>
+                            {% endif %}
+                        </div>
+                        
+                        <!-- Session Notes (for mentors) -->
+                        {% if request.user == session.mentor and session.mentor_notes %}
+                        <div class="mt-4 bg-white border border-gray-200 rounded-lg overflow-hidden">
+                            <div class="p-4 border-b border-gray-200 bg-gray-50">
+                                <h3 class="text-sm font-medium text-gray-900">Your Notes</h3>
+                            </div>
+                            <div class="p-4">
+                                <p class="text-sm text-gray-700 whitespace-pre-line">{{ session.mentor_notes }}</p>
+                            </div>
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Back to Dashboard -->
+        <div class="mt-6">
+            <a href="{% if request.user == session.student %}{% url 'core:student_dashboard' %}{% else %}{% url 'core:mentor_dashboard' %}{% endif %}" 
+               class="inline-flex items-center text-sm font-medium text-blue-600 hover:text-blue-800">
+                <i class="fas fa-arrow-left mr-1"></i>
+                Back to Dashboard
+            </a>
+        </div>
+    </div>
+</div>
+{% endblock %}

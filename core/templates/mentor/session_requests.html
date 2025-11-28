@@ -1,0 +1,116 @@
+{% extends 'mentor/base.html' %}
+{% load tz %}
+
+{% block title %}Session Requests - Mentor Dashboard{% endblock %}
+
+{% block content %}
+<div class="bg-white shadow overflow-hidden sm:rounded-lg">
+    <div class="px-4 py-5 sm:px-6 border-b border-gray-200">
+        <h3 class="text-lg leading-6 font-medium text-gray-900">Session Requests</h3>
+        <p class="mt-1 max-w-2xl text-sm text-gray-500">Review and manage your incoming session requests</p>
+    </div>
+    
+    <!-- Pending Requests -->
+    <div class="px-4 py-5 sm:p-6">
+        <h4 class="text-md font-medium text-gray-900 mb-4">Pending Requests ({{ session_requests|length }})</h4>
+        
+        {% if session_requests %}
+            <div class="space-y-4">
+                {% for session in session_requests %}
+                <div class="bg-gray-50 p-4 rounded-lg border border-gray-200">
+                    <div class="flex justify-between items-start">
+                        <div>
+                            <p class="font-medium text-gray-900">
+                                {{ session.student.get_full_name|default:session.student.username }}
+                                <span class="ml-2 inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
+                                    Pending
+                                </span>
+                            </p>
+                            <p class="text-sm text-gray-600 mt-1">
+                                <svg class="inline-block h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                                </svg>
+                                {{ session.scheduled_time|localtime|date:"F j, Y \a\t g:i A" }}
+                                <span class="mx-2">•</span>
+                                <svg class="inline-block h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                </svg>
+                                {{ session.duration_minutes }} minutes
+                            </p>
+                            {% if session.description %}
+                            <div class="mt-2 text-sm text-gray-600 bg-white p-3 rounded border border-gray-100">
+                                <p class="font-medium">Session Notes:</p>
+                                <p class="mt-1">{{ session.description|linebreaksbr }}</p>
+                            </div>
+                            {% endif %}
+                        </div>
+                        <div class="flex space-x-2">
+                            <form method="post" action="{% url 'core:update_session_status' session.id %}" class="inline">
+                                {% csrf_token %}
+                                <input type="hidden" name="action" value="accept">
+                                <button type="submit" class="inline-flex items-center px-3 py-1.5 border border-transparent text-xs font-medium rounded-md shadow-sm text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500">
+                                    Accept
+                                </button>
+                            </form>
+                            <form method="post" action="{% url 'core:update_session_status' session.id %}" class="inline">
+                                {% csrf_token %}
+                                <input type="hidden" name="action" value="reject">
+                                <button type="submit" class="inline-flex items-center px-3 py-1.5 border border-gray-300 text-xs font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
+                                    Decline
+                                </button>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        {% else %}
+            <div class="text-center py-8">
+                <svg class="mx-auto h-12 w-12 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+                </svg>
+                <h3 class="mt-2 text-sm font-medium text-gray-900">No pending requests</h3>
+                <p class="mt-1 text-sm text-gray-500">You don't have any pending session requests at the moment.</p>
+            </div>
+        {% endif %}
+    </div>
+</div>
+
+<!-- Upcoming Sessions -->
+{% if upcoming_sessions %}
+<div class="mt-8 bg-white shadow overflow-hidden sm:rounded-lg">
+    <div class="px-4 py-5 sm:px-6 border-b border-gray-200">
+        <h3 class="text-md font-medium text-gray-900">Upcoming Sessions ({{ upcoming_sessions|length }})</h3>
+    </div>
+    <ul class="divide-y divide-gray-200">
+        {% for session in upcoming_sessions|slice:":3" %}
+        <li class="px-6 py-4 hover:bg-gray-50">
+            <div class="flex items-center justify-between">
+                <div class="flex items-center">
+                    <div class="flex-shrink-0 h-10 w-10 rounded-full bg-indigo-100 flex items-center justify-center">
+                        <span class="text-indigo-600 font-medium">{{ session.student.get_full_name|default:session.student.username|first|upper }}</span>
+                    </div>
+                    <div class="ml-4">
+                        <p class="text-sm font-medium text-gray-900">{{ session.student.get_full_name|default:session.student.username }}</p>
+                        <p class="text-sm text-gray-500">
+                            {{ session.scheduled_time|localtime|date:"F j, Y \a\t g:i A" }}
+                            <span class="mx-1">•</span>
+                            {{ session.duration_minutes }} minutes
+                        </p>
+                    </div>
+                </div>
+                <div class="ml-2 flex-shrink-0 flex">
+                    <a href="#" class="text-sm font-medium text-indigo-600 hover:text-indigo-500">View</a>
+                </div>
+            </div>
+        </li>
+        {% endfor %}
+    </ul>
+    {% if upcoming_sessions|length > 3 %}
+    <div class="px-6 py-4 border-t border-gray-200 text-center">
+        <a href="#" class="text-sm font-medium text-indigo-600 hover:text-indigo-500">View all upcoming sessions</a>
+    </div>
+    {% endif %}
+</div>
+{% endif %}
+{% endblock %}

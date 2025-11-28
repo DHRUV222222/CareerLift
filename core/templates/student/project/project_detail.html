@@ -1,0 +1,184 @@
+{% extends 'base.html' %}
+
+{% block title %}{{ project.title }} - CareerLift{% endblock %}
+
+{% block content %}
+<div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <!-- Back button and actions -->
+    <div class="mb-6 flex items-center justify-between">
+        <a href="{% url 'core:project_list' %}" class="inline-flex items-center text-sm font-medium text-gray-500 hover:text-gray-700">
+            <svg class="flex-shrink-0 -ml-1 mr-1 h-5 w-5 text-gray-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                <path fill-rule="evenodd" d="M12.707 5.293a1 1 0 010 1.414L9.414 10l3.293 3.293a1 1 0 01-1.414 1.414l-4-4a1 1 0 010-1.414l4-4a1 1 0 011.414 0z" clip-rule="evenodd" />
+            </svg>
+            Back to projects
+        </a>
+        <div class="flex space-x-3">
+            <a href="{% url 'core:project_update' project.pk %}" class="inline-flex items-center px-3 py-2 border border-gray-300 shadow-sm text-sm leading-4 font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
+                <svg class="-ml-0.5 mr-2 h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                    <path d="M13.586 3.586a2 2 0 112.828 2.828l-.793.793-2.828-2.828.793-.793zM11.379 5.793L3 14.172V17h2.828l8.38-8.379-2.83-2.828z" />
+                </svg>
+                Edit
+            </a>
+            <a href="{% url 'core:project_delete' project.pk %}" class="inline-flex items-center px-3 py-2 border border-transparent text-sm leading-4 font-medium rounded-md shadow-sm text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500">
+                <svg class="-ml-0.5 mr-2 h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                    <path fill-rule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clip-rule="evenodd" />
+                </svg>
+                Delete
+            </a>
+        </div>
+    </div>
+
+    <!-- Project header -->
+    <div class="bg-white shadow overflow-hidden sm:rounded-lg">
+        <div class="px-4 py-5 sm:px-6">
+            <div class="flex items-center justify-between">
+                <div>
+                    <h1 class="text-2xl font-bold text-gray-900">{{ project.title }}</h1>
+                    <p class="mt-1 text-sm text-gray-500">
+                        Created on {{ project.created_at|date:"F d, Y" }}
+                        {% if project.updated_at and project.updated_at != project.created_at %}
+                            • Updated on {{ project.updated_at|date:"F d, Y" }}
+                        {% endif %}
+                    </p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Project content -->
+        <div class="border-t border-gray-200 px-4 py-5 sm:px-6">
+            <div class="grid grid-cols-1 gap-8 lg:grid-cols-3">
+                <!-- Main content -->
+                <div class="lg:col-span-2">
+                    <!-- Project images carousel -->
+                    {% if project.images.exists %}
+                        <div class="mb-6">
+                            <div class="relative rounded-lg overflow-hidden bg-gray-100" style="padding-bottom: 56.25%;">
+                                {% for image in project.images.all %}
+                                    <div class="absolute inset-0 {% if not forloop.first %}hidden{% endif %} project-image group" data-index="{{ forloop.counter0 }}">
+                                        {% with image_url=image.image.url %}
+                                        <img src="{{ image_url }}" alt="Project image {{ forloop.counter }}" class="w-full h-full object-cover">
+                                        {% if request.user == project.student %}
+                                        <button type="button" 
+                                                class="absolute top-2 right-2 bg-red-500 text-white rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity"
+                                                data-image-id="{{ image.id }}"
+                                                onclick="deleteImage(this)">
+                                            <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                                            </svg>
+                                        </button>
+                                        {% endif %}
+                                        {% endwith %}
+                                    </div>
+                                {% endfor %}
+                            </div>
+                            
+                            {% if project.images.count > 1 %}
+                                <div class="mt-4 grid grid-cols-4 gap-2 sm:grid-cols-6">
+                                    {% for image in project.images.all %}
+                                        <button type="button" class="relative rounded-md overflow-hidden h-16 bg-gray-100 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 {% if forloop.first %}ring-2 ring-blue-500{% endif %}" data-index="{{ forloop.counter0 }}" onclick="showImage(this)">
+                                            <img src="{{ image.image.url }}" alt="Thumbnail {{ forloop.counter }}" class="w-full h-full object-cover">
+                                        </button>
+                                    {% endfor %}
+                                </div>
+                            {% endif %}
+                        </div>
+                    {% else %}
+                        <div class="relative aspect-w-16 aspect-h-9 bg-gray-100 rounded-lg flex items-center justify-center mb-6 group">
+                            <svg class="h-16 w-16 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                            </svg>
+                            <span class="text-sm text-gray-500 mt-2">No images available</span>
+                        </div>
+                    {% endif %}
+
+                    <!-- Project description -->
+                    <div class="prose max-w-none">
+                        <h3 class="text-lg font-medium text-gray-900">Project Description</h3>
+                        <div class="mt-2 text-gray-700 whitespace-pre-line">
+                            {{ project.description|linebreaksbr }}
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Sidebar -->
+                <div class="lg:col-span-1">
+                    <div class="bg-gray-50 p-4 rounded-lg">
+                        <!-- Technologies -->
+                        <div class="mb-6">
+                            <h3 class="text-sm font-medium text-gray-500 mb-2">Technologies Used</h3>
+                            <div class="flex flex-wrap gap-2">
+                                {% for tech in project.get_tech_stack_list %}
+                                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                                        {{ tech|title }}
+                                    </span>
+                                {% empty %}
+                                    <p class="text-sm text-gray-500">No technologies specified</p>
+                                {% endfor %}
+                            </div>
+                        </div>
+
+                        <!-- Project details -->
+                        <div>
+                            <h3 class="text-sm font-medium text-gray-500">Project Details</h3>
+                            <dl class="mt-2 border-t border-gray-200 divide-y divide-gray-200">
+                                <div class="py-3 flex justify-between text-sm font-medium">
+                                    <dt class="text-gray-500">Created</dt>
+                                    <dd class="text-gray-900">{{ project.created_at|date:"M d, Y" }}</dd>
+                                </div>
+                                {% if project.updated_at and project.updated_at != project.created_at %}
+                                    <div class="py-3 flex justify-between text-sm font-medium">
+                                        <dt class="text-gray-500">Last Updated</dt>
+                                        <dd class="text-gray-900">{{ project.updated_at|date:"M d, Y" }}</dd>
+                                    </div>
+                                {% endif %}
+                                <div class="py-3 flex justify-between text-sm font-medium">
+                                    <dt class="text-gray-500">Images</dt>
+                                    <dd class="text-gray-900">{{ project.images.count }}</dd>
+                                </div>
+                            </dl>
+                        </div>
+
+                        <!-- Actions -->
+                        <div class="mt-6 flex flex-col space-y-3">
+                            <a href="{% url 'core:project_update' project.pk %}" class="w-full flex items-center justify-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
+                                <svg class="-ml-1 mr-2 h-5 w-5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                                    <path d="M13.586 3.586a2 2 0 112.828 2.828l-.793.793-2.828-2.828.793-.793zM11.379 5.793L3 14.172V17h2.828l8.38-8.379-2.83-2.828z" />
+                                </svg>
+                                Edit Project
+                            </a>
+                            <a href="{% url 'core:project_delete' project.pk %}" class="w-full flex items-center justify-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500">
+                                <svg class="-ml-1 mr-2 h-5 w-5 text-gray-500" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                                    <path fill-rule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clip-rule="evenodd" />
+                                </svg>
+                                Delete Project
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    // Show the selected image in the carousel
+    function showImage(button) {
+        const index = button.getAttribute('data-index');
+        const images = document.querySelectorAll('.project-image');
+        const thumbnails = document.querySelectorAll('[data-index]');
+        
+        // Update active thumbnail
+        document.querySelectorAll('[data-index]').forEach(btn => {
+            if (btn.tagName === 'BUTTON') {
+                if (btn.getAttribute('data-index') === index) {
+                    btn.classList.add('ring-2', 'ring-blue-500');
+                } else {
+                    btn.classList.remove('ring-2', 'ring-blue-500');
+                }
+            }
+        });
+    }
+</script>
+{% endblock %}

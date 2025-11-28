@@ -1,0 +1,31 @@
+{% extends 'emails/base.html' %}
+
+{% block title %}Session Request Accepted - {{ site_name }}{% endblock %}
+
+{% block header %}Session Request Accepted{% endblock %}
+
+{% block content %}
+<p>Hello {{ student.get_full_name|default:student.username }},</p>
+
+<p>Great news! {{ mentor.get_full_name|default:mentor.username }} has accepted your session request.</p>
+
+<div class="session-details">
+    <h3>Session Details</h3>
+    <p><strong>Title:</strong> {{ session.title }}</p>
+    <p><strong>Date & Time:</strong> {{ session.scheduled_time|date:"F j, Y \a\t g:i A" }}</p>
+    <p><strong>Duration:</strong> {{ session.duration_minutes }} minutes</p>
+    {% if session.description %}
+    <p><strong>Notes:</strong> {{ session.description|linebreaksbr }}</p>
+    {% endif %}
+</div>
+
+<p>Please mark your calendar and be ready for the session. You can join the session by clicking the button below when it's time:</p>
+
+<p style="text-align: center; margin: 25px 0;">
+    <a href="{{ site_domain }}{% url 'core:session_detail' session.id %}" class="btn">Join Session</a>
+</p>
+
+<p>If you have any questions or need to reschedule, please contact {{ mentor.get_full_name|default:mentor.username }} directly.</p>
+
+<p>Best regards,<br>The {{ site_name }} Team</p>
+{% endblock %}

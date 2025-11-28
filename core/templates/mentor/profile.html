@@ -1,0 +1,131 @@
+{% extends 'mentor/base.html' %}
+{% load static %}
+
+{% block content %}
+<div class="max-w-4xl mx-auto px-4 py-8">
+    <div class="bg-white shadow rounded-lg p-6">
+        <h1 class="text-2xl font-bold text-gray-800 mb-6">My Profile</h1>
+        
+        <!-- Success/Error Messages -->
+        {% if messages %}
+        <div class="mb-6">
+            {% for message in messages %}
+            <div class="p-4 mb-4 text-sm rounded-lg {% if message.tags %}{{ message.tags }}{% endif %}
+                {% if message.level == DEFAULT_MESSAGE_LEVELS.SUCCESS %}bg-green-100 text-green-700{% endif %}
+                {% if message.level == DEFAULT_MESSAGE_LEVELS.ERROR %}bg-red-100 text-red-700{% endif %}">
+                {{ message }}
+            </div>
+            {% endfor %}
+        </div>
+        {% endif %}
+
+        <form method="post" enctype="multipart/form-data" class="space-y-6">
+            {% csrf_token %}
+            
+            <!-- User Form -->
+            <div class="space-y-4">
+                <h2 class="text-lg font-semibold text-gray-700">Personal Information</h2>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div>
+                        <label for="{{ form.first_name.id_for_label }}" class="block text-sm font-medium text-gray-700">
+                            First Name
+                        </label>
+                        {{ form.first_name }}
+                        {% if form.first_name.errors %}
+                            <p class="mt-1 text-sm text-red-600">{{ form.first_name.errors.0 }}</p>
+                        {% endif %}
+                    </div>
+                    <div>
+                        <label for="{{ form.last_name.id_for_label }}" class="block text-sm font-medium text-gray-700">
+                            Last Name
+                        </label>
+                        {{ form.last_name }}
+                        {% if form.last_name.errors %}
+                            <p class="mt-1 text-sm text-red-600">{{ form.last_name.errors.0 }}</p>
+                        {% endif %}
+                    </div>
+                    <div class="md:col-span-2">
+                        <label for="{{ form.email.id_for_label }}" class="block text-sm font-medium text-gray-700">
+                            Email
+                        </label>
+                        {{ form.email }}
+                        {% if form.email.errors %}
+                            <p class="mt-1 text-sm text-red-600">{{ form.email.errors.0 }}</p>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+
+            <!-- Mentor Form -->
+            {% if mentor_form %}
+            <div class="border-t border-gray-200 pt-6 space-y-4">
+                <h2 class="text-lg font-semibold text-gray-700">Mentor Profile</h2>
+                <div class="space-y-4">
+                    <div>
+                        <label for="{{ mentor_form.bio.id_for_label }}" class="block text-sm font-medium text-gray-700">
+                            Bio
+                        </label>
+                        {{ mentor_form.bio }}
+                        {% if mentor_form.bio.errors %}
+                            <p class="mt-1 text-sm text-red-600">{{ mentor_form.bio.errors.0 }}</p>
+                        {% endif %}
+                    </div>
+                    
+                    <div class="space-y-2">
+                        <label class="block text-sm font-medium text-gray-700">
+                            Profile Picture
+                        </label>
+                        <div class="flex items-center space-x-4">
+                            {% if mentor_form.instance.profile_picture %}
+                            <img src="{{ mentor_form.instance.profile_picture.url }}" 
+                                 alt="Profile picture" 
+                                 class="h-20 w-20 rounded-full object-cover">
+                            {% else %}
+                            <div class="h-20 w-20 rounded-full bg-gray-200 flex items-center justify-center text-gray-500">
+                                <span class="text-xs">No image</span>
+                            </div>
+                            {% endif %}
+                            <div class="flex-1">
+                                <input type="file" 
+                                       name="profile_picture" 
+                                       id="{{ mentor_form.profile_picture.id_for_label }}" 
+                                       class="block w-full text-sm text-gray-500
+                                              file:mr-4 file:py-2 file:px-4
+                                              file:rounded-md file:border-0
+                                              file:text-sm file:font-semibold
+                                              file:bg-blue-50 file:text-blue-700
+                                              hover:file:bg-blue-100">
+                                {% if mentor_form.profile_picture.errors %}
+                                    <p class="mt-1 text-sm text-red-600">{{ mentor_form.profile_picture.errors.0 }}</p>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+
+            <!-- Submit Button -->
+            <div class="pt-6 border-t border-gray-200">
+                <button type="submit" 
+                        class="inline-flex justify-center py-2 px-4 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
+                    Save Changes
+                </button>
+                <a href="{% url 'core:mentor_dashboard' %}" 
+                   class="ml-3 inline-flex justify-center py-2 px-4 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
+                    Back to Dashboard
+                </a>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    // Add any custom JavaScript here if needed
+    document.addEventListener('DOMContentLoaded', function() {
+        // You can add any client-side validation or UI enhancements here
+    });
+</script>
+{% endblock %}

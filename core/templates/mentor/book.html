@@ -1,0 +1,207 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Book a Session - CareerLift{% endblock %}
+
+{% block content %}
+<div class="min-h-screen bg-gray-50">
+    <!-- Header -->
+    <div class="bg-white shadow">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+            <div class="md:flex md:items-center md:justify-between">
+                <div class="flex-1 min-w-0">
+                    <h1 class="text-2xl font-bold leading-7 text-gray-900 sm:text-3xl sm:truncate">
+                        Book a Session with {{ mentor.user.get_full_name|default:mentor.user.username }}
+                    </h1>
+                </div>
+                <div class="mt-4 flex md:mt-0 md:ml-4">
+                    <a href="{% url 'core:mentor_detail' mentor.id %}" class="inline-flex items-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
+                        <svg class="-ml-1 mr-2 h-5 w-5 text-gray-500" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                            <path fill-rule="evenodd" d="M9.707 16.707a1 1 0 01-1.414 0l-6-6a1 1 0 010-1.414l6-6a1 1 0 011.414 1.414L5.414 9H17a1 1 0 110 2H5.414l4.293 4.293a1 1 0 010 1.414z" clip-rule="evenodd" />
+                        </svg>
+                        Back to Profile
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Main Content -->
+    <main class="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <div class="bg-white shadow overflow-hidden rounded-lg">
+            <div class="px-6 py-5 border-b border-gray-200">
+                <h3 class="text-lg font-medium text-gray-900">Session Details</h3>
+            </div>
+            
+            <div class="px-6 py-6">
+                <form method="post" class="space-y-6">
+                    {% csrf_token %}
+                    
+                    {% if form.non_field_errors %}
+                        <div class="bg-red-50 border-l-4 border-red-400 p-4">
+                            <div class="flex">
+                                <div class="flex-shrink-0">
+                                    <svg class="h-5 w-5 text-red-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                                        <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd" />
+                                    </svg>
+                                </div>
+                                <div class="ml-3">
+                                    <p class="text-sm text-red-700">
+                                        {{ form.non_field_errors.0 }}
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+                    {% endif %}
+                    
+                    <!-- Title -->
+                    <div>
+                        <label for="{{ form.title.id_for_label }}" class="block text-sm font-medium text-gray-700">
+                            Session Title
+                        </label>
+                        <div class="mt-1">
+                            <input type="text" name="{{ form.title.name }}" id="{{ form.title.id_for_label }}" 
+                                   value="{{ form.title.value|default:'' }}" required
+                                   class="shadow-sm focus:ring-blue-500 focus:border-blue-500 block w-full sm:text-sm border-gray-300 rounded-md">
+                        </div>
+                        {% if form.title.errors %}
+                            <p class="mt-2 text-sm text-red-600">{{ form.title.errors.0 }}</p>
+                        {% endif %}
+                    </div>
+                    
+                    <!-- Description -->
+                    <div>
+                        <label for="{{ form.description.id_for_label }}" class="block text-sm font-medium text-gray-700">
+                            What would you like to discuss?
+                        </label>
+                        <div class="mt-1">
+                            <textarea name="{{ form.description.name }}" id="{{ form.description.id_for_label }}" 
+                                      rows="4" required
+                                      class="shadow-sm focus:ring-blue-500 focus:border-blue-500 block w-full sm:text-sm border-gray-300 rounded-md">{{ form.description.value|default:'' }}</textarea>
+                        </div>
+                        <p class="mt-2 text-sm text-gray-500">
+                            Be specific about what you'd like to cover during this session.
+                        </p>
+                        {% if form.description.errors %}
+                            <p class="mt-2 text-sm text-red-600">{{ form.description.errors.0 }}</p>
+                        {% endif %}
+                    </div>
+                    
+                    <div class="grid grid-cols-1 gap-6 sm:grid-cols-2">
+                        <!-- Date & Time -->
+                        <div>
+                            <label for="{{ form.scheduled_time.id_for_label }}" class="block text-sm font-medium text-gray-700">
+                                Date & Time
+                            </label>
+                            <div class="mt-1">
+                                <input type="datetime-local" name="{{ form.scheduled_time.name }}" 
+                                       id="{{ form.scheduled_time.id_for_label }}" 
+                                       value="{{ form.scheduled_time.value|date:'Y-m-d\TH:i'|default:'' }}" required
+                                       class="shadow-sm focus:ring-blue-500 focus:border-blue-500 block w-full sm:text-sm border-gray-300 rounded-md">
+                            </div>
+                            {% if form.scheduled_time.errors %}
+                                <p class="mt-2 text-sm text-red-600">{{ form.scheduled_time.errors.0 }}</p>
+                            {% endif %}
+                        </div>
+                        
+                        <!-- Duration -->
+                        <div>
+                            <label for="{{ form.duration_minutes.id_for_label }}" class="block text-sm font-medium text-gray-700">
+                                Duration (minutes)
+                            </label>
+                            <div class="mt-1">
+                                <select name="{{ form.duration_minutes.name }}" id="{{ form.duration_minutes.id_for_label }}" 
+                                        class="shadow-sm focus:ring-blue-500 focus:border-blue-500 block w-full sm:text-sm border-gray-300 rounded-md">
+                                    <option value="30" {% if form.duration_minutes.value == 30 %}selected{% endif %}>30 minutes</option>
+                                    <option value="45" {% if form.duration_minutes.value == 45 %}selected{% endif %}>45 minutes</option>
+                                    <option value="60" {% if not form.duration_minutes.value or form.duration_minutes.value == 60 %}selected{% endif %}>60 minutes</option>
+                                    <option value="90" {% if form.duration_minutes.value == 90 %}selected{% endif %}>90 minutes</option>
+                                    <option value="120" {% if form.duration_minutes.value == 120 %}selected{% endif %}>120 minutes</option>
+                                </select>
+                            </div>
+                            {% if form.duration_minutes.errors %}
+                                <p class="mt-2 text-sm text-red-600">{{ form.duration_minutes.errors.0 }}</p>
+                            {% endif %}
+                        </div>
+                    </div>
+                    
+                    <!-- Mentor Info -->
+                    <div class="bg-gray-50 p-4 rounded-lg border border-gray-200">
+                        <h4 class="text-sm font-medium text-gray-900 mb-2">Mentor Information</h4>
+                        <div class="flex items-start">
+                            <div class="flex-shrink-0">
+                                <img class="h-12 w-12 rounded-full" 
+                                     src="{{ mentor.user.profile_picture.url|default:'/static/images/default-avatar.png' }}" 
+                                     alt="{{ mentor.user.get_full_name }}">
+                            </div>
+                            <div class="ml-4">
+                                <p class="text-sm font-medium text-gray-900">{{ mentor.user.get_full_name|default:mentor.user.username }}</p>
+                                <p class="text-sm text-gray-600">{{ mentor.title|default:'Mentor' }}</p>
+                                <div class="mt-1">
+                                    <span class="text-yellow-400">
+                                        {% for i in "12345" %}
+                                            {% if forloop.counter <= mentor.average_rating|default:0|floatformat:0|add:0 %}
+                                                ★
+                                            {% else %}
+                                                ☆
+                                            {% endif %}
+                                        {% endfor %}
+                                    </span>
+                                    <span class="text-xs text-gray-500">({{ mentor.total_sessions|default:0 }} sessions)</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Terms and Conditions -->
+                    <div class="flex items-start">
+                        <div class="flex items-center h-5">
+                            <input id="terms" name="terms" type="checkbox" required
+                                   class="focus:ring-blue-500 h-4 w-4 text-blue-600 border-gray-300 rounded">
+                        </div>
+                        <div class="ml-3 text-sm">
+                            <label for="terms" class="font-medium text-gray-700">I agree to the <a href="#" class="text-blue-600 hover:text-blue-500">terms and conditions</a></label>
+                            <p class="text-gray-500">By booking this session, you agree to our cancellation policy and code of conduct.</p>
+                        </div>
+                    </div>
+                    
+                    <!-- Submit Button -->
+                    <div class="pt-5">
+                        <div class="flex justify-end">
+                            <button type="submit" class="ml-3 inline-flex justify-center py-2 px-4 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
+                                Request Session
+                            </button>
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </main>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    // Set minimum datetime to now for the datetime-local input
+    document.addEventListener('DOMContentLoaded', function() {
+        const now = new Date();
+        // Format the date and time in the format expected by datetime-local input
+        const year = now.getFullYear();
+        const month = String(now.getMonth() + 1).padStart(2, '0');
+        const day = String(now.getDate()).padStart(2, '0');
+        const hours = String(now.getHours()).padStart(2, '0');
+        const minutes = String(now.getMinutes()).padStart(2, '0');
+        
+        const minDateTime = `${year}-${month}-${day}T${hours}:${minutes}`;
+        document.getElementById('{{ form.scheduled_time.id_for_label }}').min = minDateTime;
+        
+        // If the form was submitted with errors, the value might be in the format 'YYYY-MM-DD HH:MM:SS'
+        // Convert it to 'YYYY-MM-DDTHH:MM' for the datetime-local input
+        const scheduledTimeInput = document.getElementById('{{ form.scheduled_time.id_for_label }}');
+        if (scheduledTimeInput.value && scheduledTimeInput.value.includes(' ')) {
+            const [datePart, timePart] = scheduledTimeInput.value.split(' ');
+            scheduledTimeInput.value = `${datePart}T${timePart.substring(0, 5)}`;
+        }
+    });
+</script>
+{% endblock %}

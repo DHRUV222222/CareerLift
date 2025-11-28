@@ -1,0 +1,146 @@
+{% extends 'base.html' %}
+{% load crispy_forms_tags %}
+
+{% block title %}Update Session - CareerLift{% endblock %}
+
+{% block content %}
+<div class="container mx-auto px-4 py-8">
+    <div class="max-w-3xl mx-auto">
+        <div class="bg-white rounded-lg shadow-md overflow-hidden">
+            <div class="p-6 border-b border-gray-200">
+                <h1 class="text-2xl font-bold text-gray-800">Update Session</h1>
+                <p class="text-gray-600 mt-1">
+                    {% if request.user == session.student %}
+                        Update your session details with {{ session.mentor.get_full_name }}
+                    {% else %}
+                        Update session details for {{ session.student.get_full_name }}
+                    {% endif %}
+                </p>
+            </div>
+            
+            <div class="p-6">
+                <form method="post" id="updateSessionForm">
+                    {% csrf_token %}
+                    
+                    <div class="space-y-6">
+                        <div class="bg-blue-50 border-l-4 border-blue-400 p-4 mb-6">
+                            <div class="flex">
+                                <div class="flex-shrink-0">
+                                    <i class="fas fa-info-circle text-blue-400"></i>
+                                </div>
+                                <div class="ml-3">
+                                    <p class="text-sm text-blue-700">
+                                        {% if request.user == session.student %}
+                                            Any changes to this session will be sent to {{ session.mentor.first_name }} for confirmation.
+                                        {% else %}
+                                            You can update the session details or status. The student will be notified of any changes.
+                                        {% endif %}
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <div class="col-span-2">
+                                {{ form.title|as_crispy_field }}
+                            </div>
+                            
+                            <div class="col-span-2">
+                                {{ form.description|as_crispy_field }}
+                            </div>
+                            
+                            <div>
+                                {{ form.scheduled_time|as_crispy_field }}
+                            </div>
+                            
+                            <div>
+                                {{ form.duration_minutes|as_crispy_field }}
+                            </div>
+                            
+                            {% if request.user == session.mentor %}
+                            <div class="col-span-2">
+                                {{ form.status|as_crispy_field }}
+                            </div>
+                            
+                            <div class="col-span-2">
+                                {{ form.meeting_link|as_crispy_field }}
+                                <p class="mt-1 text-sm text-gray-500">
+                                    Provide a meeting link (Zoom, Google Meet, etc.) for the session
+                                </p>
+                            </div>
+                            
+                            <div class="col-span-2">
+                                {{ form.mentor_notes|as_crispy_field }}
+                                <p class="mt-1 text-sm text-gray-500">
+                                    Private notes about this session (only visible to you)
+                                </p>
+                            </div>
+                            {% endif %}
+                        </div>
+                        
+                        <div class="flex justify-between pt-4 border-t border-gray-200">
+                            <a href="{% url 'core:sessions:session_detail' session.pk %}" 
+                               class="inline-flex items-center px-4 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
+                                <i class="fas fa-arrow-left mr-2"></i>
+                                Back to Session
+                            </a>
+                            
+                            <div class="space-x-3">
+                                {% if request.user == session.student and session.status == 'requested' %}
+                                <button type="button" 
+                                        onclick="confirmCancel()"
+                                        class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500">
+                                    <i class="fas fa-times mr-2"></i>
+                                    Cancel Session
+                                </button>
+                                {% endif %}
+                                
+                                <button type="submit" 
+                                        class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
+                                    <i class="fas fa-save mr-2"></i>
+                                    Save Changes
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </form>
+                
+                {% if request.user == session.student and session.status == 'requested' %}
+                <form id="cancelForm" method="post" action="{% url 'core:sessions:cancel_session' session.pk %}" class="hidden">
+                    {% csrf_token %}
+                </form>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+{% block extra_js %}
+<script>
+function confirmCancel() {
+    if (confirm('Are you sure you want to cancel this session? This action cannot be undone.')) {
+        document.getElementById('cancelForm').submit();
+    }
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+    // Set minimum datetime to current time
+    const now = new Date();
+    const timeZoneOffset = now.getTimezoneOffset() * 60000; // Convert minutes to milliseconds
+    const localISOTime = (new Date(now - timeZoneOffset)).toISOString().slice(0, 16);
+    
+    const scheduledTimeField = document.getElementById('id_scheduled_time');
+    if (scheduledTimeField) {
+        scheduledTimeField.min = localISOTime;
+    }
+    
+    // Set default duration to 30 minutes if not set
+    const durationField = document.getElementById('id_duration_minutes');
+    if (durationField && !durationField.value) {
+        durationField.value = 30;
+    }
+});
+</script>
+{% endblock %}
+
+{% endblock %}

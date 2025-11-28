@@ -1,0 +1,143 @@
+---
+# Deployment
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: careerlift
+  labels:
+    app: careerlift
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: careerlift
+  template:
+    metadata:
+      labels:
+        app: careerlift
+    spec:
+      containers:
+      - name: careerlift
+        image: your-dockerhub-username/careerlift:${BUILD_NUMBER}
+        ports:
+        - containerPort: 8000
+        env:
+        - name: DEBUG
+          value: "0"
+        - name: SECRET_KEY
+          valueFrom:
+            secretKeyRef:
+              name: careerlift-secrets
+              key: secret-key
+        - name: DB_NAME
+          value: careerlift
+        - name: DB_USER
+          valueFrom:
+            secretKeyRef:
+              name: careerlift-secrets
+              key: db-user
+        - name: DB_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: careerlift-secrets
+              key: db-password
+        - name: DB_HOST
+          value: careerlift-mysql
+        - name: DB_PORT
+          value: "3306"
+        livenessProbe:
+          httpGet:
+            path: /health/
+            port: 8000
+          initialDelaySeconds: 30
+          periodSeconds: 10
+        readinessProbe:
+          httpGet:
+            path: /health/
+            port: 8000
+          initialDelaySeconds: 30
+          periodSeconds: 10
+      
+      # Database container
+      - name: mysql
+        image: mysql:8.0
+        env:
+        - name: MYSQL_ROOT_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: careerlift-secrets
+              key: db-root-password
+        - name: MYSQL_DATABASE
+          value: careerlift
+        - name: MYSQL_USER
+          valueFrom:
+            secretKeyRef:
+              name: careerlift-secrets
+              key: db-user
+        - name: MYSQL_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: careerlift-secrets
+              key: db-password
+        ports:
+        - containerPort: 3306
+        volumeMounts:
+        - name: mysql-persistent-storage
+          mountPath: /var/lib/mysql
+      
+      volumes:
+      - name: mysql-persistent-storage
+        persistentVolumeClaim:
+          claimName: mysql-pv-claim
+
+---
+# Service
+apiVersion: v1
+kind: Service
+metadata:
+  name: careerlift-service
+spec:
+  type: LoadBalancer
+  ports:
+  - port: 80
+    targetPort: 8000
+  selector:
+    app: careerlift
+
+---
+# Database Service
+apiVersion: v1
+kind: Service
+metadata:
+  name: careerlift-mysql
+spec:
+  ports:
+  - port: 3306
+  selector:
+    app: careerlift
+
+---
+# Persistent Volume Claim for MySQL
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: mysql-pv-claim
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 5Gi
+
+---
+# Secret (example - replace with your actual secrets)
+apiVersion: v1
+kind: Secret
+metadata:
+  name: careerlift-secrets
+type: Opaque
+data:
+  secret-key: "base64-encoded-secret-key"
+  db-user: "base64-encoded-db-user"
+  db-password: "base64-encoded-db-password"
+  db-root-password: "base64-encoded-root-password"

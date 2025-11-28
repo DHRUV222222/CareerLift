@@ -1,0 +1,45 @@
+version: '3.8'
+
+services:
+  db:
+    image: mysql:8.0
+    environment:
+      MYSQL_DATABASE: careerlift
+      MYSQL_USER: careerlift_user
+      MYSQL_PASSWORD: your_secure_password
+      MYSQL_ROOT_PASSWORD: root_password
+      MYSQL_ROOT_HOST: '%'  # Allow root login from any host
+    command: --default-authentication-plugin=mysql_native_password
+    volumes:
+      - mysql_data:/var/lib/mysql
+      - ./init.sql:/docker-entrypoint-initdb.d/init.sql
+    ports:
+      - "3307:3306"
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      timeout: 5s
+      retries: 10
+
+  web:
+    build: .
+    command: >
+      bash -c "python manage.py wait_for_db && 
+      python manage.py migrate && 
+      python manage.py create_superuser_if_not_exists && 
+      gunicorn --bind 0.0.0.0:8000 careerlift.wsgi:application"
+    volumes:
+      - .:/app
+    ports:
+      - "8000:8000"
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      - DATABASE_URL=mysql://careerlift_user:your_secure_password@db:3306/careerlift
+      - DEBUG=0
+      - DJANGO_SUPERUSER_USERNAME=admin
+      - DJANGO_SUPERUSER_EMAIL=admin@example.com
+      - DJANGO_SUPERUSER_PASSWORD=admin123
+
+volumes:
+  mysql_data:

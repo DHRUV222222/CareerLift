@@ -1,0 +1,89 @@
+{% extends 'mentor/base.html' %}
+{% load static %}
+
+{% block title %}My Sessions - CareerLift{% endblock %}
+
+{% block content %}
+<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <div class="flex justify-between items-center mb-8">
+        <h1 class="text-2xl font-bold text-gray-900">My Sessions</h1>
+        <a href="{% url 'core:mentor_dashboard' %}" 
+           class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
+            Back to Dashboard
+        </a>
+    </div>
+
+    <!-- Tabs -->
+    <div class="border-b border-gray-200 mb-6">
+        <nav class="-mb-px flex space-x-8" aria-label="Tabs">
+            <a href="{% url 'core:mentor_sessions' %}" 
+               class="{% if 'sessions' in request.path %}border-blue-500 text-blue-600{% else %}border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300{% endif %} whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm">
+                All Sessions
+            </a>
+            <a href="{% url 'core:mentor_session_requests' %}" 
+               class="{% if 'requests' in request.path %}border-blue-500 text-blue-600{% else %}border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300{% endif %} whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm">
+                Session Requests
+                {% if pending_requests_count %}
+                <span class="bg-red-100 text-red-600 text-xs font-medium px-2 py-0.5 rounded-full ml-1">
+                    {{ pending_requests_count }}
+                </span>
+                {% endif %}
+            </a>
+            <a href="{% url 'core:mentor_upcoming_sessions' %}" 
+               class="{% if 'upcoming' in request.path %}border-blue-500 text-blue-600{% else %}border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300{% endif %} whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm">
+                Upcoming Sessions
+            </a>
+            <a href="{% url 'core:mentor_completed_sessions' %}" 
+               class="{% if 'completed' in request.path %}border-blue-500 text-blue-600{% else %}border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300{% endif %} whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm">
+                Completed Sessions
+            </a>
+        </nav>
+    </div>
+
+    <!-- Session List -->
+    <div class="bg-white shadow overflow-hidden sm:rounded-lg">
+        {% if sessions %}
+            <ul class="divide-y divide-gray-200">
+                {% for session in sessions %}
+                <li class="px-6 py-4 hover:bg-gray-50">
+                    <div class="flex items-center justify-between">
+                        <div class="flex-1 min-w-0">
+                            <p class="text-sm font-medium text-blue-600 truncate">
+                                {{ session.title }}
+                                <span class="ml-2 inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-{% if session.status == 'accepted' %}green{% elif session.status == 'requested' %}yellow{% else %}gray{% endif %}-100 text-{% if session.status == 'accepted' %}green{% elif session.status == 'requested' %}yellow{% else %}gray{% endif %}-800">
+                                    {{ session.get_status_display }}
+                                </span>
+                            </p>
+                            <p class="mt-1 text-sm text-gray-500">
+                                <span class="text-gray-900 font-medium">{{ session.student.get_full_name|default:session.student.username }}</span>
+                                • 
+                                <time datetime="{{ session.scheduled_time|date:'c' }}">
+                                    {{ session.scheduled_time|date:"F j, Y, g:i a" }}
+                                </time>
+                                • {{ session.duration_minutes }} minutes
+                            </p>
+                        </div>
+                        <div class="ml-4 flex-shrink-0">
+                            <a href="{% url 'core:mentor_session_update' session.pk %}" 
+                               class="font-medium text-blue-600 hover:text-blue-500">
+                                View/Edit
+                            </a>
+                        </div>
+                    </div>
+                </li>
+                {% endfor %}
+            </ul>
+        {% else %}
+            <div class="px-6 py-12 text-center">
+                <svg class="mx-auto h-12 w-12 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                </svg>
+                <h3 class="mt-2 text-sm font-medium text-gray-900">No sessions</h3>
+                <p class="mt-1 text-sm text-gray-500">
+                    You don't have any sessions scheduled yet.
+                </p>
+            </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

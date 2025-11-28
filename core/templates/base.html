@@ -1,0 +1,294 @@
+<!DOCTYPE html>
+{% load static %}
+<html lang="en" class="scroll-smooth">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}CareerLift - Empowering Your Career Journey{% endblock %}</title>
+    
+    <!-- Favicon -->
+    <link rel="icon" type="image/png" href="{% static 'images/favicon.ico' %}">
+    
+    <!-- Tailwind CSS with custom configuration -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- Alpine.js -->
+    <script defer src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: {
+                            50: '#f0f9ff',
+                            100: '#e0f2fe',
+                            200: '#bae6fd',
+                            300: '#7dd3fc',
+                            400: '#38bdf8',
+                            500: '#0ea5e9',
+                            600: '#0284c7',
+                            700: '#0369a1',
+                            800: '#075985',
+                            900: '#0c4a6e',
+                        },
+                        secondary: {
+                            50: '#f8fafc',
+                            100: '#f1f5f9',
+                            200: '#e2e8f0',
+                            300: '#cbd5e1',
+                            400: '#94a3b8',
+                            500: '#64748b',
+                            600: '#475569',
+                            700: '#334155',
+                            800: '#1e293b',
+                            900: '#0f172a',
+                        },
+                    },
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                        display: ['Poppins', 'sans-serif'],
+                    },
+                    boxShadow: {
+                        'card': '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)',
+                        'card-hover': '0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05)',
+                    },
+                    animation: {
+                        'fade-in': 'fadeIn 0.3s ease-in-out',
+                        'slide-up': 'slideUp 0.3s ease-out',
+                    },
+                    keyframes: {
+                        fadeIn: {
+                            '0%': { opacity: '0' },
+                            '100%': { opacity: '1' },
+                        },
+                        slideUp: {
+                            '0%': { transform: 'translateY(10px)', opacity: '0' },
+                            '100%': { transform: 'translateY(0)', opacity: '1' },
+                        },
+                    },
+                },
+            },
+        }
+    </script>
+    
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
+    
+    <!-- Alpine.js -->
+    <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.12.0/dist/cdn.min.js"></script>
+    
+    <!-- Font Awesome -->
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    
+    <!-- AOS Animation -->
+    <link href="https://unpkg.com/aos@2.3.1/dist/aos.css" rel="stylesheet">
+    <script src="https://unpkg.com/aos@2.3.1/dist/aos.js"></script>
+    
+    <!-- Custom CSS -->
+    <style>
+        [x-cloak] { display: none !important; }
+        .prose :where(p):not(:where([class~="not-prose"] *)) {
+            margin-top: 1.25em;
+            margin-bottom: 1.25em;
+        }
+        .prose :where(ul):not(:where([class~="not-prose"] *)) {
+            list-style-type: disc;
+            padding-left: 1.5rem;
+            margin-top: 1.25em;
+            margin-bottom: 1.25em;
+        }
+        .prose :where(ol):not(:where([class~="not-prose"] *)) {
+            list-style-type: decimal;
+            padding-left: 1.5rem;
+            margin-top: 1.25em;
+            margin-bottom: 1.25em;
+        }
+        .prose :where(li):not(:where([class~="not-prose"] *)) {
+            margin-top: 0.5em;
+            margin-bottom: 0.5em;
+        }
+        .prose :where(a):not(:where([class~="not-prose"] *)) {
+            color: #0ea5e9;
+            text-decoration: none;
+            font-weight: 500;
+        }
+        .prose :where(a:hover):not(:where([class~="not-prose"] *)) {
+            text-decoration: underline;
+        }
+    </style>
+    
+    {% block extra_css %}{% endblock %}
+</head>
+<body class="bg-gradient-to-br from-gray-50 to-gray-100 min-h-screen flex flex-col">
+    <!-- Navigation -->
+    <nav class="bg-white shadow-sm sticky top-0 z-50 border-b border-gray-200">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex justify-between h-16">
+                <!-- Logo -->
+                <div class="flex-shrink-0 flex items-center">
+                    <a href="{% url 'core:home' %}" class="flex items-center space-x-2 group">
+                        <span class="text-primary-600 text-2xl font-extrabold font-display tracking-tight">Career<span class="text-primary-400">Lift</span></span>
+                    </a>
+                </div>
+
+                <!-- Desktop Navigation -->
+                <div class="hidden md:ml-6 md:flex md:items-center md:space-x-8">
+                    <a href="{% url 'core:home' %}" class="text-gray-700 hover:text-primary-600 px-3 py-2 rounded-md text-sm font-medium transition-colors duration-200 flex items-center">
+                        <i class="fas fa-home mr-2"></i> Home
+                    </a>
+                    
+                    {% if user.is_authenticated %}
+                        {% if user.is_student %}
+                            <a href="{% url 'core:student_dashboard' %}" class="text-gray-700 hover:text-primary-600 px-3 py-2 rounded-md text-sm font-medium transition-colors duration-200 flex items-center">
+                                <i class="fas fa-tachometer-alt mr-2"></i> Dashboard
+                            </a>
+                            <a href="{% url 'core:project_list' %}" class="text-gray-700 hover:text-primary-600 px-3 py-2 rounded-md text-sm font-medium transition-colors duration-200 flex items-center">
+                                <i class="fas fa-project-diagram mr-2"></i> My Projects
+                            </a>
+                            <a href="{% url 'core:resume_list' %}" class="text-gray-700 hover:text-primary-600 px-3 py-2 rounded-md text-sm font-medium transition-colors duration-200 flex items-center">
+                                <i class="fas fa-file-alt mr-2"></i> Resumes
+                            </a>
+                        {% elif user.is_mentor %}
+                            <a href="{% url 'core:mentor_dashboard' %}" class="text-gray-700 hover:text-primary-600 px-3 py-2 rounded-md text-sm font-medium transition-colors duration-200 flex items-center">
+                                <i class="fas fa-tachometer-alt mr-2"></i> Dashboard
+                            </a>
+                            <a href="{% url 'core:mentor_sessions' %}" class="text-gray-700 hover:text-primary-600 px-3 py-2 rounded-md text-sm font-medium transition-colors duration-200 flex items-center">
+                                <i class="fas fa-calendar-alt mr-2"></i> Sessions
+                            </a>
+                        {% endif %}
+                    {% endif %}
+                </div>
+                
+                <!-- Right side menu items -->
+                <div class="flex items-center space-x-4">
+                    {% if user.is_authenticated %}
+                        <div class="ml-3 relative">
+                            <div>
+                                <button type="button" class="bg-blue-600 flex text-sm rounded-full focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-blue-600 focus:ring-white" id="user-menu" aria-expanded="false" aria-haspopup="true">
+                                    <span class="sr-only">Open user menu</span>
+                                    {% if user.profile_picture %}
+                                        <img class="h-8 w-8 rounded-full" src="{{ user.profile_picture.url }}" alt="">
+                                    {% else %}
+                                        <div class="h-8 w-8 rounded-full bg-blue-400 flex items-center justify-center">
+                                            <span class="text-white font-medium">{{ user.first_name|first|upper }}{{ user.last_name|first|upper|default:'' }}</span>
+                                        </div>
+                                    {% endif %}
+                                </button>
+                            </div>
+                            <!-- Dropdown menu -->
+                            <div class="origin-top-right absolute right-0 mt-2 w-48 rounded-md shadow-lg py-1 bg-white ring-1 ring-black ring-opacity-5 focus:outline-none hidden" role="menu" aria-orientation="vertical" id="user-dropdown">
+                                <a href="{% url 'core:profile' %}" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100" role="menuitem">Your Profile</a>
+                                <form method="post" action="{% url 'core:logout' %}" class="w-full">
+                                    {% csrf_token %}
+                                    <button type="submit" class="w-full text-left block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100" role="menuitem">
+                                        Sign out
+                                    </button>
+                                </form>
+                            </div>
+                        </div>
+                    {% else %}
+                        <a href="{% url 'core:login' %}" class="text-blue-600 hover:bg-blue-50 px-3 py-2 rounded-md text-sm font-medium transition-colors duration-200">
+                            <i class="fas fa-sign-in-alt mr-1"></i> Sign In
+                        </a>
+                        <a href="{% url 'core:register' %}" class="bg-blue-600 text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-blue-700 transition-colors duration-200">
+                            <i class="fas fa-user-plus mr-1"></i> Sign Up
+                        </a>
+                    {% endif %}
+                </div>
+                <!-- Mobile menu button -->
+                <div class="-mr-2 flex items-center sm:hidden">
+                    <button type="button" class="inline-flex items-center justify-center p-2 rounded-md text-blue-200 hover:text-white hover:bg-blue-500 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-white" aria-controls="mobile-menu" aria-expanded="false">
+                        <span class="sr-only">Open main menu</span>
+                        <i class="fas fa-bars"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Mobile menu, show/hide based on menu state. -->
+        <div class="sm:hidden hidden" id="mobile-menu">
+            <div class="pt-2 pb-3 space-y-1">
+                <a href="{% url 'core:home' %}" class="bg-blue-700 text-white block px-3 py-2 rounded-md text-base font-medium">Home</a>
+                {% if user.is_authenticated %}
+                    {% if user.is_student %}
+                    <a href="{% url 'core:student_dashboard' %}" class="text-white hover:bg-blue-500 block px-3 py-2 rounded-md text-base font-medium">
+                        Dashboard
+                    </a>
+                    {% elif user.is_mentor %}
+                    <a href="{% url 'core:mentor_dashboard' %}" class="text-white hover:bg-blue-500 block px-3 py-2 rounded-md text-base font-medium">
+                        Dashboard
+                    </a>
+                    {% endif %}
+                    <a href="{% url 'core:profile' %}" class="text-white hover:bg-blue-500 block px-3 py-2 rounded-md text-base font-medium">Profile</a>
+                    <form method="post" action="{% url 'core:logout' %}" class="w-full">
+                        {% csrf_token %}
+                        <button type="submit" class="w-full text-left text-white hover:bg-blue-500 block px-3 py-2 rounded-md text-base font-medium">
+                            Sign out
+                        </button>
+                    </form>
+                {% else %}
+                    <a href="{% url 'core:login' %}" class="text-white hover:bg-blue-500 block px-3 py-2 rounded-md text-base font-medium">Sign in</a>
+                    <a href="{% url 'core:register' %}" class="text-white hover:bg-blue-500 block px-3 py-2 rounded-md text-base font-medium">Sign up</a>
+                {% endif %}
+            </div>
+        </div>
+    </nav>
+
+    <!-- Main Content -->
+    <main class="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
+        {% if messages %}
+            {% for message in messages %}
+                <div class="mb-4 p-4 rounded-md {% if message.tags == 'success' %}bg-green-100 text-green-800{% elif message.tags == 'error' %}bg-red-100 text-red-800{% else %}bg-blue-100 text-blue-800{% endif %}">
+                    {{ message }}
+                </div>
+            {% endfor %}
+        {% endif %}
+        
+        {% block content %}
+        {% endblock %}
+    </main>
+
+    <!-- Footer -->
+    <footer class="bg-white mt-12">
+        <div class="max-w-7xl mx-auto py-12 px-4 overflow-hidden sm:px-6 lg:px-8">
+            <p class="mt-8 text-center text-base text-gray-400">
+                &copy; 2025 CareerLift. All rights reserved.
+            </p>
+        </div>
+    </footer>
+
+    <!-- JavaScript -->
+    <script>
+        // Mobile menu toggle
+        document.addEventListener('DOMContentLoaded', function() {
+            const mobileMenuButton = document.querySelector('[aria-controls="mobile-menu"]');
+            const mobileMenu = document.getElementById('mobile-menu');
+            
+            if (mobileMenuButton && mobileMenu) {
+                mobileMenuButton.addEventListener('click', function() {
+                    mobileMenu.classList.toggle('hidden');
+                });
+            }
+
+            // User dropdown toggle
+            const userMenuButton = document.getElementById('user-menu');
+            const userDropdown = document.getElementById('user-dropdown');
+            
+            if (userMenuButton && userDropdown) {
+                userMenuButton.addEventListener('click', function() {
+                    userDropdown.classList.toggle('hidden');
+                });
+
+                // Close dropdown when clicking outside
+                document.addEventListener('click', function(event) {
+                    if (!userMenuButton.contains(event.target) && !userDropdown.contains(event.target)) {
+                        userDropdown.classList.add('hidden');
+                    }
+                });
+            }
+        });
+    </script>
+    
+    {% block extra_js %}{% endblock %}
+</body>
+</html>

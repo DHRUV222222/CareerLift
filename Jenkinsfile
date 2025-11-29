@@ -6,14 +6,6 @@ apiVersion: v1
 kind: Pod
 spec:
   containers:
-  - name: python
-    image: python:3.10-slim
-    command: ["cat"]
-    tty: true
-    volumeMounts:
-    - name: ssh-credentials
-      mountPath: /root/.ssh
-      readOnly: true
 
   - name: sonar-scanner
     image: sonarsource/sonar-scanner-cli
@@ -27,6 +19,9 @@ spec:
     securityContext:
       runAsUser: 0
       readOnlyRootFilesystem: false
+    env:
+    - name: KUBECONFIG
+      value: /kube/config
     volumeMounts:
     - name: kubeconfig-secret
       mountPath: /kube/config
@@ -48,55 +43,53 @@ spec:
   - name: docker-config
     configMap:
       name: docker-daemon-config
+
   - name: kubeconfig-secret
     secret:
       secretName: kubeconfig-secret
-  - name: ssh-credentials
-    secret:
-      secretName: ssh-credentials
-      defaultMode: 0600
 '''
         }
     }
 
     environment {
-        NEXUS_URL = 'nexus-service-for-docker-hosted-registry.nexus.svc.cluster.local:8085'
-        DOCKER_IMAGE = "${NEXUS_URL}/careerlift/careerlift-app:${BUILD_NUMBER}"
-        KUBE_NAMESPACE = 'careerlift-ns'
+        NEXUS_URL = "nexus-service-for-docker-hosted-registry.nexus.svc.cluster.local:8085"
+        IMAGE_NAME = "careerlift-app"
+        DOCKER_IMAGE = "${NEXUS_URL}/careerlift/${IMAGE_NAME}:${BUILD_NUMBER}"
+        KUBE_NAMESPACE = "careerlift-ns"
+        SONAR_TOKEN = "sqp_64723a56f6198e4a7501fd240f37720c24c8a166"
     }
-    
+
     stages {
 
-        stage('Checkout') {
+        stage('Checkout Code') {
             steps {
-                container('python') {
+                container('sonar-scanner') {
                     checkout scm
                 }
             }
         }
 
-        stage('Install Dependencies') {
+        stage('Build Docker Image') {
             steps {
-                container('python') {
+                container('dind') {
                     sh '''
-                    python -m pip install --upgrade pip
-                    pip install -r requirements.txt
-                    pip install pytest pytest-django pytest-cov coverage
+                        sleep 10
+                        docker build -t careerlift-app:latest .
+                        docker image ls
                     '''
                 }
             }
         }
 
-        stage('Run Tests') {
+        stage('Run Tests in Docker') {
             steps {
-                container('python') {
+                container('dind') {
                     sh '''
-                    pytest --ds=careerlift.settings \
+                        docker run --rm careerlift-app:latest \
+                        pytest --maxfail=1 --disable-warnings --ds=careerlift.settings \
                         --junitxml=reports/junit.xml \
-                        --cov=. \
-                        --cov-report=xml:coverage.xml
+                        --cov=. --cov-report=xml:coverage.xml
                     '''
-                    junit 'reports/junit.xml'
                 }
             }
         }
@@ -105,30 +98,20 @@ spec:
             steps {
                 container('sonar-scanner') {
                     sh """
-                    sonar-scanner \
-                        -Dsonar.projectKey=2401185 \
-                        -Dsonar.projectName=careerlift \
-                        -Dsonar.host.url=http://my-sonarqube-sonarqube.sonarqube.svc.cluster.local:9000 \
-                        -Dsonar.login=sqp_64723a56f6198e4a7501fd240f37720c24c8a166 \
-                        -Dsonar.sources=. \
-                        -Dsonar.python.coverage.reportPaths=coverage.xml \
-                        -Dsonar.python.version=3.10
+                        sonar-scanner \
+                            -Dsonar.projectKey=2401185 \
+                            -Dsonar.projectName=careerlift \
+                            -Dsonar.host.url=http://my-sonarqube-sonarqube.sonarqube.svc.cluster.local:9000 \
+                            -Dsonar.login=${SONAR_TOKEN} \
+                            -Dsonar.sources=. \
+                            -Dsonar.python.coverage.reportPaths=coverage.xml \
+                            -Dsonar.python.version=3.10
                     """
                 }
             }
         }
 
-        stage('Build Docker Image') {
-            steps {
-                container('dind') {
-                    sh """
-                    docker build -t ${DOCKER_IMAGE} .
-                    """
-                }
-            }
-        }
-
-        stage('Login to Nexus') {
+        stage('Login to Nexus Registry') {
             steps {
                 container('dind') {
                     withCredentials([
@@ -138,20 +121,22 @@ spec:
                             passwordVariable: 'NEXUS_PASSWORD'
                         )
                     ]) {
-                        sh """
-                        docker login ${NEXUS_URL} -u $NEXUS_USER -p $NEXUS_PASSWORD
-                        """
+                        sh '''
+                            docker login ${NEXUS_URL} -u $NEXUS_USER -p $NEXUS_PASSWORD
+                        '''
                     }
                 }
             }
         }
 
-        stage('Push to Nexus') {
+        stage('Tag & Push Image to Nexus') {
             steps {
                 container('dind') {
-                    sh """
-                    docker push ${DOCKER_IMAGE}
-                    """
+                    sh '''
+                        docker tag careerlift-app:latest ${DOCKER_IMAGE}
+                        docker push ${DOCKER_IMAGE}
+                        docker image ls
+                    '''
                 }
             }
         }
@@ -159,35 +144,21 @@ spec:
         stage('Deploy to Kubernetes') {
             steps {
                 container('kubectl') {
-                    withCredentials([
-                        string(credentialsId: 'django-secret-key', variable: 'DJANGO_SECRET_KEY'),
-                        usernamePassword(credentialsId: 'db-credentials', 
-                                       usernameVariable: 'DB_USER', 
-                                       passwordVariable: 'DB_PASSWORD')
-                    ]) {
-                        sh """
+                    sh """
                         kubectl get namespace ${KUBE_NAMESPACE} || kubectl create namespace ${KUBE_NAMESPACE}
-
-                        if ! kubectl get secret careerlift-secrets -n ${KUBE_NAMESPACE}; then
-                            kubectl create secret generic careerlift-secrets \
-                                --from-literal=DJANGO_SECRET_KEY='${DJANGO_SECRET_KEY}' \
-                                --from-literal=DB_USER='${DB_USER}' \
-                                --from-literal=DB_PASSWORD='${DB_PASSWORD}' \
-                                -n ${KUBE_NAMESPACE}
-                        fi
 
                         kubectl apply -f k8s_deployment.yaml -n ${KUBE_NAMESPACE}
 
-                        kubectl set image deployment/careerlift careerlift=${DOCKER_IMAGE} -n ${KUBE_NAMESPACE} || true
+                        kubectl set image deployment/careerlift \
+                            careerlift=${DOCKER_IMAGE} -n ${KUBE_NAMESPACE}
 
                         kubectl rollout status deployment/careerlift -n ${KUBE_NAMESPACE} --timeout=300s
-                        """
-                    }
+                    """
                 }
             }
         }
     }
-    
+
     post {
         always {
             container('dind') {
@@ -196,10 +167,10 @@ spec:
             cleanWs()
         }
         success {
-            echo '✅ Pipeline completed successfully!'
+            echo "✅ Pipeline Completed Successfully!"
         }
         failure {
-            echo '❌ Pipeline failed!'
+            echo "❌ Pipeline Failed!"
         }
     }
 }

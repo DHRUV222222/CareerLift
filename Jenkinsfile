@@ -52,11 +52,13 @@ spec:
     }
 
     environment {
-        NEXUS_URL       = "nexus-service-for-docker-hosted-registry.nexus.svc.cluster.local:8085"
-        IMAGE_NAME      = "careerlift-app"
-        DOCKER_IMAGE    = "${NEXUS_URL}/careerlift/${IMAGE_NAME}:${BUILD_NUMBER}"
-        KUBE_NAMESPACE  = "careerlift-ns"
-        SONAR_TOKEN     = "sqp_64723a56f6198e4a7501fd240f37720c24c8a166"
+        NEXUS_URL = "nexus-service-for-docker-hosted-registry.nexus.svc.cluster.local:8085"
+        IMAGE_NAME = "careerlift-app"
+        DOCKER_IMAGE = "${NEXUS_URL}/careerlift/${IMAGE_NAME}:${BUILD_NUMBER}"
+        KUBE_NAMESPACE = "careerlift-ns"
+
+        // 🔥 Updated Sonar Token
+        SONAR_TOKEN = "sqp_1bd7f1cd87e7f4260bf276006124ce74651289b8"
     }
 
     stages {
@@ -99,7 +101,7 @@ spec:
                 container('sonar-scanner') {
                     sh """
                         sonar-scanner \
-                            -Dsonar.projectKey=careerlift-2401185 \
+                            -Dsonar.projectKey=2401185-careerlift \
                             -Dsonar.projectName=careerlift \
                             -Dsonar.host.url=http://my-sonarqube-sonarqube.sonarqube.svc.cluster.local:9000 \
                             -Dsonar.token=${SONAR_TOKEN} \

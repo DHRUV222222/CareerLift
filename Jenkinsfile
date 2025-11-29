@@ -52,11 +52,11 @@ spec:
     }
 
     environment {
-        NEXUS_URL = "nexus-service-for-docker-hosted-registry.nexus.svc.cluster.local:8085"
-        IMAGE_NAME = "careerlift-app"
-        DOCKER_IMAGE = "${NEXUS_URL}/careerlift/${IMAGE_NAME}:${BUILD_NUMBER}"
-        KUBE_NAMESPACE = "careerlift-ns"
-        SONAR_TOKEN = "sqp_64723a56f6198e4a7501fd240f37720c24c8a166"
+        NEXUS_URL       = "nexus-service-for-docker-hosted-registry.nexus.svc.cluster.local:8085"
+        IMAGE_NAME      = "careerlift-app"
+        DOCKER_IMAGE    = "${NEXUS_URL}/careerlift/${IMAGE_NAME}:${BUILD_NUMBER}"
+        KUBE_NAMESPACE  = "careerlift-ns"
+        SONAR_TOKEN     = "sqp_64723a56f6198e4a7501fd240f37720c24c8a166"
     }
 
     stages {
@@ -99,10 +99,10 @@ spec:
                 container('sonar-scanner') {
                     sh """
                         sonar-scanner \
-                            -Dsonar.projectKey=2401185 \
+                            -Dsonar.projectKey=careerlift-2401185 \
                             -Dsonar.projectName=careerlift \
                             -Dsonar.host.url=http://my-sonarqube-sonarqube.sonarqube.svc.cluster.local:9000 \
-                            -Dsonar.login=${SONAR_TOKEN} \
+                            -Dsonar.token=${SONAR_TOKEN} \
                             -Dsonar.sources=. \
                             -Dsonar.python.coverage.reportPaths=coverage.xml \
                             -Dsonar.python.version=3.10

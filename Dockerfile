@@ -1,53 +1,52 @@
-# -----------------------------
+# -------------------------------
 # Base Image
-# -----------------------------
-FROM python:3.10-slim
+# -------------------------------
+FROM python:3.10-slim-bookworm
 
-# -----------------------------
-# Environment Variables
-# -----------------------------
-ENV PYTHONDONTWRITEBYTECODE 1
-ENV PYTHONUNBUFFERED 1
-
-# -----------------------------
-# Work Directory
-# -----------------------------
+# -------------------------------
+# Set working directory
+# -------------------------------
 WORKDIR /app
 
-# -----------------------------
-# System Dependencies (For MySQL + Pillow)
-# -----------------------------
+# -------------------------------
+# Install system dependencies
+# Needed for mysqlclient, Pillow etc.
+# -------------------------------
 RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential \
     default-libmysqlclient-dev \
-    pkg-config \
     libjpeg-dev \
     zlib1g-dev \
+    libssl-dev \
+    pkg-config \
+    && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
-# -----------------------------
-# Install Python Dependencies
-# -----------------------------
-COPY requirements.txt .
-RUN pip install --upgrade pip && \
-    pip install --no-cache-dir -r requirements.txt
+# -------------------------------
+# Upgrade pip and install Python dependencies
+# -------------------------------
+COPY requirements.txt /app/
+RUN pip install --upgrade pip \
+    && pip install --no-cache-dir -r requirements.txt \
+    && pip install pytest pytest-cov gunicorn
 
-# -----------------------------
-# Copy Project Files
-# -----------------------------
-COPY . .
+# -------------------------------
+# Copy project files
+# -------------------------------
+COPY . /app/
 
-# -----------------------------
-# Collect Static Files
-# -----------------------------
-RUN python manage.py collectstatic --noinput || echo "Skipping collectstatic"
+# -------------------------------
+# Collect static files
+# -------------------------------
+RUN python manage.py collectstatic --noinput || true
 
-# -----------------------------
-# Expose Port
-# -----------------------------
+# -------------------------------
+# Expose port
+# -------------------------------
 EXPOSE 8000
 
-# -----------------------------
-# Start Gunicorn Server
-# -----------------------------
-CMD ["gunicorn", "careerlift.wsgi:application", "--bind", "0.0.0.0:8000"]
+# -------------------------------
+# Production CMD
+# Apply migrations and start Gunicorn
+# -------------------------------
+CMD ["sh", "-c", "python manage.py migrate && exec gunicorn careerlift.wsgi:application --bind 0.0.0.0:8000"]

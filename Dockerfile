@@ -10,7 +10,7 @@ WORKDIR /app
 
 # -------------------------------
 # Install system dependencies
-# Useful for MySQL, Pillow, image processing, etc.
+# Needed for MySQL, Pillow and image processing
 # -------------------------------
 RUN apt-get update && apt-get install -y --fix-missing \
     build-essential \
@@ -57,6 +57,6 @@ EXPOSE 8000
 
 # -------------------------------
 # Production CMD
-# Apply migrations then start Gunicorn server
+# Apply migrations and start Gunicorn
 # -------------------------------
 CMD ["sh", "-c", "python manage.py migrate && exec gunicorn careerlift.wsgi:application --bind 0.0.0.0:8000"]

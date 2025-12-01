@@ -1,59 +1,53 @@
-# -------------------------------
+# --------------------------------
 # Base Image
-# -------------------------------
-FROM python:3.10-slim-bookworm
+# --------------------------------
+FROM python:3.10-slim
 
-# -------------------------------
-# Set working directory
-# -------------------------------
+# --------------------------------
+# Environment Variables
+# --------------------------------
+ENV PYTHONDONTWRITEBYTECODE 1
+ENV PYTHONUNBUFFERED 1
+
+# --------------------------------
+# Work Directory
+# --------------------------------
 WORKDIR /app
 
-# -------------------------------
-# Install system dependencies
-# -------------------------------
-RUN apt-get update --allow-insecure-repositories || true && \
-    apt-get install -y --no-install-recommends \
-        build-essential \
-        cmake \
-        g++ \
-        libsm6 \
-        libxext6 \
-        libxrender1 \
-        libglib2.0-0 \
-        libgl1 \
-        pkg-config \
-        python3-dev \
-        python3-distutils \
-        default-libmysqlclient-dev \
-        libjpeg-dev \
-        zlib1g-dev \
-        libssl-dev && \
-    apt-get clean && rm -rf /var/lib/apt/lists/*
+# --------------------------------
+# System Dependencies (For MySQL + Pillow)
+# --------------------------------
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    build-essential \
+    default-libmysqlclient-dev \
+    pkg-config \
+    libjpeg-dev \
+    zlib1g-dev \
+    && rm -rf /var/lib/apt/lists/*
 
-# -------------------------------
-# Upgrade pip and install Python dependencies
-# -------------------------------
+# --------------------------------
+# Install Python Dependencies
+# --------------------------------
 COPY requirements.txt /app/
 RUN pip install --upgrade pip \
-    && pip install --no-cache-dir -r requirements.txt \
-    && pip install pytest pytest-cov gunicorn
+    && pip install --no-cache-dir -r requirements.txt
 
-# -------------------------------
-# Copy project files
-# -------------------------------
+# --------------------------------
+# Copy Project Files
+# --------------------------------
 COPY . /app/
 
-# -------------------------------
-# Collect static files
-# -------------------------------
-RUN python manage.py collectstatic --noinput || true
+# --------------------------------
+# Collect Static Files
+# --------------------------------
+RUN python manage.py collectstatic --noinput || echo "Skipping collectstatic"
 
-# -------------------------------
-# Expose port
-# -------------------------------
+# --------------------------------
+# Expose Port
+# --------------------------------
 EXPOSE 8000
 
-# -------------------------------
-# Run migrations + Gunicorn
-# -------------------------------
-CMD ["sh", "-c", "python manage.py migrate && exec gunicorn careerlift.wsgi:application --bind 0.0.0.0:8000"]
+# --------------------------------
+# Start Using Gunicorn
+# --------------------------------
+CMD ["gunicorn", "careerlift.wsgi:application", "--bind", "0.0.0.0:8000"]

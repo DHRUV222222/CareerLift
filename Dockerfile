@@ -9,8 +9,13 @@ FROM python:3.10-slim-bookworm
 WORKDIR /app
 
 # -------------------------------
+# Add stable Debian mirrors (fix for DNS issues inside K8s + DinD)
+# -------------------------------
+RUN sed -i 's|deb.debian.org|deb.debian.net|g' /etc/apt/sources.list \
+    && sed -i 's|security.debian.org|deb.debian.net|g' /etc/apt/sources.list
+
+# -------------------------------
 # Install system dependencies
-# (Bookworm repositories work properly)
 # -------------------------------
 RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential \
@@ -35,18 +40,17 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 # Install Python dependencies
 # -------------------------------
 COPY requirements.txt /app/
-
 RUN pip install --upgrade pip \
     && pip install --no-cache-dir -r requirements.txt \
     && pip install pytest pytest-cov gunicorn
 
 # -------------------------------
-# Copy project files
+# Copy project
 # -------------------------------
 COPY . /app/
 
 # -------------------------------
-# Collect static files
+# Collect static
 # -------------------------------
 RUN python manage.py collectstatic --noinput || true
 
@@ -56,6 +60,6 @@ RUN python manage.py collectstatic --noinput || true
 EXPOSE 8000
 
 # -------------------------------
-# Production CMD
+# CMD: migrate + gunicorn
 # -------------------------------
 CMD ["sh", "-c", "python manage.py migrate && exec gunicorn careerlift.wsgi:application --bind 0.0.0.0:8000"]

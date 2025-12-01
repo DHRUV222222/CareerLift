@@ -1,7 +1,7 @@
 # -------------------------------
 # Base Image
 # -------------------------------
-FROM python:3.10-slim-bullseye
+FROM python:3.10-slim-bookworm
 
 # -------------------------------
 # Set working directory
@@ -9,27 +9,25 @@ FROM python:3.10-slim-bullseye
 WORKDIR /app
 
 # -------------------------------
-# Fix Debian sources + Install system dependencies
+# Install system dependencies
+# (Bookworm repositories work properly)
 # -------------------------------
-RUN sed -i 's|deb.debian.org|deb.archive.debian.org|g' /etc/apt/sources.list \
-    && sed -i 's|security.debian.org|deb.archive.debian.org|g' /etc/apt/sources.list \
-    && apt-get update --allow-releaseinfo-change \
-    && apt-get install -y --fix-missing \
-        build-essential \
-        cmake \
-        g++ \
-        libsm6 \
-        libxext6 \
-        libxrender1 \
-        libglib2.0-0 \
-        libgl1 \
-        pkg-config \
-        python3-dev \
-        python3-distutils \
-        default-libmysqlclient-dev \
-        libjpeg-dev \
-        zlib1g-dev \
-        libssl-dev \
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    build-essential \
+    cmake \
+    g++ \
+    libsm6 \
+    libxext6 \
+    libxrender1 \
+    libglib2.0-0 \
+    libgl1 \
+    pkg-config \
+    python3-dev \
+    python3-distutils \
+    default-libmysqlclient-dev \
+    libjpeg-dev \
+    zlib1g-dev \
+    libssl-dev \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
@@ -59,6 +57,5 @@ EXPOSE 8000
 
 # -------------------------------
 # Production CMD
-# Apply migrations & start Gunicorn
 # -------------------------------
 CMD ["sh", "-c", "python manage.py migrate && exec gunicorn careerlift.wsgi:application --bind 0.0.0.0:8000"]

@@ -31,79 +31,92 @@ spec:
           limits:
             cpu: 500m
             memory: 512Mi
+
+        # --------------------------
+        # Environment Variables
+        # --------------------------
         env:
         - name: DEBUG
-          value: "1"  # Enable debug for troubleshooting
+          value: "1"
+
         - name: SECRET_KEY
           valueFrom:
             secretKeyRef:
               name: career-secret
-              key: secret-key
-        # Database configuration using secrets
+              key: SECRET_KEY
+
         - name: DB_NAME
           valueFrom:
             secretKeyRef:
               name: career-secret
               key: DB_NAME
+
         - name: DB_USER
           valueFrom:
             secretKeyRef:
               name: career-secret
               key: DB_USER
+
         - name: DB_PASSWORD
           valueFrom:
             secretKeyRef:
               name: career-secret
               key: DB_PASSWORD
+
+        - name: DB_HOST
+          valueFrom:
+            secretKeyRef:
+              name: career-secret
+              key: DB_HOST
+
         - name: DB_PORT
           valueFrom:
             secretKeyRef:
               name: career-secret
               key: DB_PORT
-        - name: DATABASE_URL
-          value: "$(DB_ENGINE)://$(DB_USER):$(DB_PASSWORD)@$(DB_HOST):$(DB_PORT)/$(DB_NAME)"
+
+        # HEALTH PROBES
         livenessProbe:
           httpGet:
             path: /health/
             port: 8000
-            scheme: HTTP
-          initialDelaySeconds: 180  # Increased initial delay
+          initialDelaySeconds: 180
           periodSeconds: 10
           timeoutSeconds: 5
           failureThreshold: 3
+
         readinessProbe:
           httpGet:
             path: /health/
             port: 8000
-            scheme: HTTP
           initialDelaySeconds: 30
           periodSeconds: 10
           timeoutSeconds: 5
           failureThreshold: 3
+
         startupProbe:
           httpGet:
             path: /health/
             port: 8000
-            scheme: HTTP
-          failureThreshold: 30  # Allow up to 5 minutes for startup
+          failureThreshold: 30
           periodSeconds: 10
 
 ---
-# Service
+# Application Service
 apiVersion: v1
 kind: Service
 metadata:
   name: careerlift-service
 spec:
   type: LoadBalancer
+  selector:
+    app: careerlift
   ports:
   - port: 80
     targetPort: 8000
-  selector:
-    app: careerlift
 
 ---
-# Database Service
+# Database Service (MySQL/MariaDB)
 apiVersion: v1
 kind: Service
 metadata:
@@ -128,23 +141,6 @@ spec:
       storage: 5Gi
 
 ---
-# Secret for application credentials
-apiVersion: v1
-kind: Secret
-metadata:
-  name: careerlift-secrets
-type: Opaque
-data:
-  # Generate with: echo -n 'your-secret-key' | base64
-  secret-key: "eW91ci1zZWNyZXQta2V5"
-  # Database user
-  db-user: "Y2FyZWVybGlmdA=="  # careerlift
-  # Database password
-  db-password: "cGFzc3dvcmQxMjM="  # password123
-  # Root password for MySQL
-  db-root-password: "cm9vdHBhc3N3b3Jk"  # rootpassword
-
----
 # Secret for Nexus registry credentials
 apiVersion: v1
 kind: Secret
@@ -152,5 +148,4 @@ type: kubernetes.io/dockerconfigjson
 metadata:
   name: nexus-registry-credentials
 data:
-  # This is a base64-encoded empty JSON object {}
   .dockerconfigjson: e30K

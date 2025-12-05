@@ -58,7 +58,7 @@ spec:
         KUBE_NAMESPACE = "careerlift-ns"
 
         // 🔥 Updated Sonar Token
-        SONAR_TOKEN = "sqp_1bd7f1cd87e7f4260bf276006124ce74651289b8"
+        SONAR_TOKEN = "sqp_e70dca117aaa445364015a3235a50530a178ae09"
     }
 
     stages {

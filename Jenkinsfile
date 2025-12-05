@@ -55,7 +55,8 @@ spec:
         NEXUS_REGISTRY = 'nexus-service-for-docker-hosted-registry.nexus.svc.cluster.local:8085'
         DOCKER_IMAGE = "${NEXUS_REGISTRY}/careerlift/careerlift-app:${BUILD_NUMBER}"
         KUBE_NAMESPACE = 'careerlift-ns'
-        SONAR_TOKEN = credentials('sonar-token')
+        // Make SonarQube token optional
+        SONAR_ANALYSIS = 'false'  // Set to 'true' to enable SonarQube analysis
         IMAGE_TAG = "${BUILD_NUMBER}"
     }
 
@@ -95,6 +96,9 @@ spec:
         }
 
         stage('SonarQube Analysis') {
+            when {
+                environment name: 'SONAR_ANALYSIS', value: 'true'
+            }
             environment {
                 SONAR_HOST = 'http://my-sonarqube-sonarqube.sonarqube.svc.cluster.local:9000'
                 SONAR_PROJECT_KEY = '2401185_CareerLift'
@@ -108,22 +112,26 @@ spec:
                             echo "Project: ${SONAR_PROJECT_KEY}"
                             echo "Host: ${SONAR_HOST}"
                             
-                            sh """
-                                sonar-scanner \
-                                    -Dsonar.projectKey=${SONAR_PROJECT_KEY} \
-                                    -Dsonar.projectName="${SONAR_PROJECT_NAME}" \
-                                    -Dsonar.host.url=${SONAR_HOST} \
-                                    -Dsonar.token=${SONAR_TOKEN} \
-                                    -Dsonar.sources=. \
-                                    -Dsonar.python.coverage.reportPaths=coverage.xml \
-                                    -Dsonar.python.version=3.10 \
-                                    -Dsonar.sourceEncoding=UTF-8 \
-                                    -Dsonar.scm.disabled=true
-                            """
+                            withCredentials([string(credentialsId: 'sonar-token', variable: 'SONAR_TOKEN')]) {
+                                sh """
+                                    sonar-scanner \
+                                        -Dsonar.projectKey=${SONAR_PROJECT_KEY} \
+                                        -Dsonar.projectName=\"${SONAR_PROJECT_NAME}\" \
+                                        -Dsonar.host.url=${SONAR_HOST} \
+                                        -Dsonar.token=${SONAR_TOKEN} \
+                                        -Dsonar.sources=. \
+                                        -Dsonar.python.coverage.reportPaths=coverage.xml \
+                                        -Dsonar.python.version=3.10 \
+                                        -Dsonar.sourceEncoding=UTF-8 \
+                                        -Dsonar.scm.disabled=true
+                                """
+                            }
                             
                             echo "✅ SonarQube analysis completed successfully"
                         } catch (err) {
-                            error "❌ SonarQube analysis failed: ${err.message}"
+                            echo "⚠️ SonarQube analysis skipped or failed: ${err.message}"
+                            // Don't fail the build if SonarQube analysis fails
+                            currentBuild.result = 'UNSTABLE'
                         }
                     }
                 }

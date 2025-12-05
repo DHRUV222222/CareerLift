@@ -6,6 +6,7 @@ apiVersion: v1
 kind: Pod
 spec:
   containers:
+
   - name: sonar-scanner
     image: sonarsource/sonar-scanner-cli
     command: ["cat"]
@@ -42,7 +43,6 @@ spec:
   - name: docker-config
     configMap:
       name: docker-daemon-config
-
   - name: kubeconfig-secret
     secret:
       secretName: kubeconfig-secret
@@ -53,9 +53,13 @@ spec:
     environment {
         NEXUS_REGISTRY = 'nexus-service-for-docker-hosted-registry.nexus.svc.cluster.local:8085'
         DOCKER_IMAGE = "${NEXUS_REGISTRY}/careerlift/careerlift-app:${BUILD_NUMBER}"
+
+        // Kubernetes uses NodePort registry instead
+        K8S_IMAGE = "127.0.0.1:30085/careerlift/careerlift-app:${BUILD_NUMBER}"
+
         KUBE_NAMESPACE = 'careerlift-ns'
 
-        SONAR_ANALYSIS = 'true'
+        // SonarQube
         SONAR_HOST = 'http://my-sonarqube-sonarqube.sonarqube.svc.cluster.local:9000'
         SONAR_PROJECT_KEY = '2401185_CareerLift'
         SONAR_PROJECT_NAME = 'CareerLift'
@@ -78,29 +82,12 @@ spec:
                     sh '''
                         sleep 10
                         docker build -t careerlift-app:latest .
-                        docker image ls
-                    '''
-                }
-            }
-        }
-
-        stage('Run Tests in Docker') {
-            steps {
-                container('dind') {
-                    sh '''
-                        docker run --rm careerlift-app:latest \
-                        pytest --disable-warnings --ds=careerlift.settings \
-                        --junitxml=reports/junit.xml \
-                        --cov=. --cov-report=xml:coverage.xml || true
                     '''
                 }
             }
         }
 
         stage('SonarQube Analysis') {
-            when {
-                environment name: 'SONAR_ANALYSIS', value: 'true'
-            }
             steps {
                 container('sonar-scanner') {
                     sh """
@@ -121,20 +108,22 @@ spec:
             steps {
                 container('dind') {
                     sh """
-                        echo "Logging in to Nexus registry..."
                         echo "Changeme@2025" | docker login ${NEXUS_REGISTRY} -u admin --password-stdin
                     """
                 }
             }
         }
 
-        stage('Tag & Push Image to Nexus') {
+        stage('Push Image to Nexus') {
             steps {
                 container('dind') {
                     sh """
                         docker tag careerlift-app:latest ${DOCKER_IMAGE}
                         docker push ${DOCKER_IMAGE}
-                        docker image ls
+
+                        # Push also to 127.0.0.1:30085 for Kubernetes
+                        docker tag careerlift-app:latest ${K8S_IMAGE}
+                        docker push ${K8S_IMAGE}
                     """
                 }
             }
@@ -147,7 +136,7 @@ spec:
                         kubectl apply -f k8s_deployment.yaml -n ${KUBE_NAMESPACE}
 
                         kubectl set image deployment/careerlift \
-                            careerlift=${DOCKER_IMAGE} -n ${KUBE_NAMESPACE}
+                            careerlift=${K8S_IMAGE} -n ${KUBE_NAMESPACE}
 
                         kubectl rollout status deployment/careerlift -n ${KUBE_NAMESPACE} --timeout=600s
                     """

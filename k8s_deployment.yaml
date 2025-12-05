@@ -1,5 +1,4 @@
 ---
-# Deployment
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -24,76 +23,48 @@ spec:
         imagePullPolicy: Always
         ports:
         - containerPort: 8000
-        resources:
-          requests:
-            cpu: 100m
-            memory: 256Mi
-          limits:
-            cpu: 500m
-            memory: 512Mi
-
-        # --------------------------
-        # Environment Variables
-        # --------------------------
         env:
         - name: DEBUG
           value: "1"
-
         - name: SECRET_KEY
           valueFrom:
             secretKeyRef:
               name: career-secret
-              key: SECRET_KEY
-
+              key: secret-key
         - name: DB_NAME
           valueFrom:
             secretKeyRef:
               name: career-secret
               key: DB_NAME
-
         - name: DB_USER
           valueFrom:
             secretKeyRef:
               name: career-secret
               key: DB_USER
-
         - name: DB_PASSWORD
           valueFrom:
             secretKeyRef:
               name: career-secret
               key: DB_PASSWORD
-
-        - name: DB_HOST
-          valueFrom:
-            secretKeyRef:
-              name: career-secret
-              key: DB_HOST
-
         - name: DB_PORT
           valueFrom:
             secretKeyRef:
               name: career-secret
               key: DB_PORT
-
-        # HEALTH PROBES
+        - name: DATABASE_URL
+          value: "$(DB_ENGINE)://$(DB_USER):$(DB_PASSWORD)@$(DB_HOST):$(DB_PORT)/$(DB_NAME)"
         livenessProbe:
           httpGet:
             path: /health/
             port: 8000
           initialDelaySeconds: 180
           periodSeconds: 10
-          timeoutSeconds: 5
-          failureThreshold: 3
-
         readinessProbe:
           httpGet:
             path: /health/
             port: 8000
           initialDelaySeconds: 30
           periodSeconds: 10
-          timeoutSeconds: 5
-          failureThreshold: 3
-
         startupProbe:
           httpGet:
             path: /health/
@@ -102,21 +73,19 @@ spec:
           periodSeconds: 10
 
 ---
-# Application Service
 apiVersion: v1
 kind: Service
 metadata:
   name: careerlift-service
 spec:
   type: LoadBalancer
-  selector:
-    app: careerlift
   ports:
   - port: 80
     targetPort: 8000
+  selector:
+    app: careerlift
 
 ---
-# Database Service (MySQL/MariaDB)
 apiVersion: v1
 kind: Service
 metadata:
@@ -128,7 +97,6 @@ spec:
     app: careerlift
 
 ---
-# Persistent Volume Claim for MySQL
 apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
@@ -141,11 +109,10 @@ spec:
       storage: 5Gi
 
 ---
-# Secret for Nexus registry credentials
 apiVersion: v1
 kind: Secret
-type: kubernetes.io/dockerconfigjson
 metadata:
   name: nexus-registry-credentials
+type: kubernetes.io/dockerconfigjson
 data:
-  .dockerconfigjson: e30K
+  .dockerconfigjson: e30K   # {} base64 encoded

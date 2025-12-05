@@ -34,7 +34,6 @@ spec:
     env:
     - name: DOCKER_TLS_CERTDIR
       value: ""
-    tty: true
     volumeMounts:
     - name: docker-config
       mountPath: /etc/docker/daemon.json
@@ -53,26 +52,22 @@ spec:
     }
 
     environment {
-        // registry accessible from inside k8s cluster (used by deployment)
+        // Jenkins pushes to INTERNAL Nexus registry
         NEXUS_REGISTRY = 'nexus-service-for-docker-hosted-registry.nexus.svc.cluster.local:8085'
 
-        // repository and tag used when pushing
-        IMAGE_REPO = "${NEXUS_REGISTRY}/careerlift/careerlift-app"
-
-        // final image pushed by pipeline
-        IMAGE_TAG = "${BUILD_NUMBER}"
-        DOCKER_IMAGE = "${IMAGE_REPO}:${IMAGE_TAG}"
-
+        DOCKER_IMAGE = "${NEXUS_REGISTRY}/careerlift/careerlift-app:${BUILD_NUMBER}"
         KUBE_NAMESPACE = 'careerlift-ns'
 
-        // Toggle sonar analysis: 'true' or 'false'
+        // SonarQube settings
         SONAR_ANALYSIS = 'true'
         SONAR_HOST = 'http://my-sonarqube-sonarqube.sonarqube.svc.cluster.local:9000'
         SONAR_PROJECT_KEY = '2401185_CareerLift'
         SONAR_PROJECT_NAME = 'CareerLift'
+        SONAR_TOKEN = 'sqp_e70dca117aaa445364015a3235a50530a178ae09'
     }
 
     stages {
+
         stage('Checkout Code') {
             steps {
                 container('sonar-scanner') {
@@ -88,7 +83,6 @@ spec:
                         sleep 5
                         echo "Building docker image: careerlift-app:latest"
                         docker build -t careerlift-app:latest .
-                        docker image ls | head -n 20
                     '''
                 }
             }
@@ -98,11 +92,10 @@ spec:
             steps {
                 container('dind') {
                     sh '''
-                        echo "Running tests (non-blocking)..."
                         docker run --rm careerlift-app:latest \
-                          pytest --maxfail=1 --disable-warnings --ds=careerlift.settings \
-                          --junitxml=reports/junit.xml \
-                          --cov=. --cov-report=xml:coverage.xml || true
+                        pytest --disable-warnings --ds=careerlift.settings \
+                        --junitxml=reports/junit.xml \
+                        --cov=. --cov-report=xml:coverage.xml || true
                     '''
                 }
             }
@@ -112,25 +105,19 @@ spec:
             when {
                 environment name: 'SONAR_ANALYSIS', value: 'true'
             }
+
             steps {
                 container('sonar-scanner') {
-                    script {
-                        // SONAR_TOKEN should be set up as Jenkins credential (type: Secret text) id: sonar-token
-                        withCredentials([string(credentialsId: 'sonar-token', variable: 'SONAR_TOKEN')]) {
-                            sh """
-                                echo "Running sonar-scanner..."
-                                sonar-scanner \
-                                  -Dsonar.projectKey=${SONAR_PROJECT_KEY} \
-                                  -Dsonar.projectName=${SONAR_PROJECT_NAME} \
-                                  -Dsonar.host.url=${SONAR_HOST} \
-                                  -Dsonar.token=${SONAR_TOKEN} \
-                                  -Dsonar.sources=. \
-                                  -Dsonar.python.coverage.reportPaths=coverage.xml \
-                                  -Dsonar.python.version=3.10 \
-                                  -Dsonar.sourceEncoding=UTF-8
-                            """
-                        }
-                    }
+                    sh """
+                        sonar-scanner \
+                          -Dsonar.projectKey=${SONAR_PROJECT_KEY} \
+                          -Dsonar.projectName=${SONAR_PROJECT_NAME} \
+                          -Dsonar.host.url=${SONAR_HOST} \
+                          -Dsonar.token=${SONAR_TOKEN} \
+                          -Dsonar.sources=. \
+                          -Dsonar.python.coverage.reportPaths=coverage.xml \
+                          -Dsonar.python.version=3.10
+                    """
                 }
             }
         }
@@ -138,29 +125,21 @@ spec:
         stage('Login to Nexus Registry') {
             steps {
                 container('dind') {
-                    script {
-                        // Ensure you have created Jenkins credentials (usernamePassword) with id: nexus-credentials
-                        withCredentials([usernamePassword(credentialsId: 'nexus-credentials', usernameVariable: 'NEXUS_USER', passwordVariable: 'NEXUS_PASS')]) {
-                            sh '''
-                                echo "Logging in to Nexus registry: ${NEXUS_REGISTRY}"
-                                echo "$NEXUS_PASS" | docker login ${NEXUS_REGISTRY} -u "$NEXUS_USER" --password-stdin
-                                docker info | head -n 20
-                            '''
-                        }
-                    }
+                    sh """
+                        echo "Logging in to Nexus registry..."
+                        echo "Changeme@2025" | docker login ${NEXUS_REGISTRY} -u admin --password-stdin
+                    """
                 }
             }
         }
 
-        stage('Tag & Push Image to Nexus') {
+        stage('Tag & Push Image') {
             steps {
                 container('dind') {
-                    sh '''
-                        echo "Tagging and pushing image ${DOCKER_IMAGE}"
+                    sh """
                         docker tag careerlift-app:latest ${DOCKER_IMAGE}
                         docker push ${DOCKER_IMAGE}
-                        docker image ls | head -n 20
-                    '''
+                    """
                 }
             }
         }
@@ -168,56 +147,17 @@ spec:
         stage('Deploy to Kubernetes') {
             steps {
                 container('kubectl') {
-                    script {
-                        echo "Applying k8s manifests and updating deployment image..."
+                    sh """
+                        kubectl apply -f k8s_deployment.yaml -n ${KUBE_NAMESPACE}
 
-                        // Create namespace if missing
-                        sh """
-                            if ! kubectl get namespace ${KUBE_NAMESPACE} >/dev/null 2>&1; then
-                                kubectl create namespace ${KUBE_NAMESPACE}
-                            fi
-                        """
+                        kubectl set image deployment/careerlift \
+                            careerlift=${DOCKER_IMAGE} -n ${KUBE_NAMESPACE}
 
-                        // Apply manifests (make sure k8s_deployment.yaml is in repo and uses the same image repository)
-                        sh "kubectl apply -f k8s_deployment.yaml -n ${KUBE_NAMESPACE}"
-
-                        // Update deployment image to the pushed tag
-                        sh """
-                            kubectl set image deployment/careerlift careerlift=${DOCKER_IMAGE} -n ${KUBE_NAMESPACE} --record
-                        """
-
-                        // Wait for rollout (increase timeout if your app starts slow)
-                        def rc = sh(script: "kubectl rollout status deployment/careerlift -n ${KUBE_NAMESPACE} --timeout=600s", returnStatus: true)
-                        if (rc != 0) {
-                            echo "Rollout failed or timed out. Gathering diagnostics..."
-                            sh """
-                                kubectl describe deployment/careerlift -n ${KUBE_NAMESPACE} || true
-                                kubectl get pods -n ${KUBE_NAMESPACE} -o wide || true
-                                kubectl logs -l app=careerlift -n ${KUBE_NAMESPACE} --tail=100 || true
-                            """
-                            error("Deployment rollout failed. See logs above.")
-                        } else {
-                            echo "✅ Deployment rolled out successfully."
-                        }
-                    }
+                        kubectl rollout status deployment/careerlift -n ${KUBE_NAMESPACE} --timeout=600s
+                    """
                 }
             }
         }
-    }
 
-    post {
-        always {
-            container('dind') {
-                sh 'docker system prune -f || true'
-            }
-            // Cleanup workspace on agent
-            deleteDir()
-        }
-        success {
-            echo "✅ Pipeline completed."
-        }
-        failure {
-            echo "❌ Pipeline failed. Check the console logs."
-        }
     }
 }

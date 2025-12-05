@@ -16,21 +16,13 @@ spec:
         app: careerlift
     spec:
       imagePullSecrets:
-        - name: nexus-registry-credentials   # <-- ensure this secret exists in the namespace
+      - name: nexus-registry-credentials
       containers:
       - name: careerlift
-        # Use the registry that Jenkins pushes to. Replace :latest with tag if you want:
-        image: nexus-service-for-docker-hosted-registry.nexus.svc.cluster.local:8085/careerlift/careerlift-app:latest
+        image: 127.0.0.1:30085/careerlift/careerlift-app:latest
         imagePullPolicy: Always
         ports:
         - containerPort: 8000
-        resources:
-          requests:
-            cpu: 100m
-            memory: 256Mi
-          limits:
-            cpu: 500m
-            memory: 512Mi
         env:
         - name: DEBUG
           value: "1"
@@ -38,7 +30,7 @@ spec:
           valueFrom:
             secretKeyRef:
               name: career-secret
-              key: SECRET_KEY     # if your secret key name differs, change accordingly
+              key: secret-key
         - name: DB_NAME
           valueFrom:
             secretKeyRef:
@@ -54,39 +46,24 @@ spec:
             secretKeyRef:
               name: career-secret
               key: DB_PASSWORD
-        - name: DB_HOST
-          valueFrom:
-            secretKeyRef:
-              name: career-secret
-              key: DB_HOST
         - name: DB_PORT
           valueFrom:
             secretKeyRef:
               name: career-secret
               key: DB_PORT
-        - name: DATABASE_URL
-          value: "$(DB_ENGINE)://$(DB_USER):$(DB_PASSWORD)@$(DB_HOST):$(DB_PORT)/$(DB_NAME)"
+
         livenessProbe:
           httpGet:
             path: /health/
             port: 8000
-          initialDelaySeconds: 180
+          initialDelaySeconds: 120
           periodSeconds: 10
-          timeoutSeconds: 5
-          failureThreshold: 3
+
         readinessProbe:
           httpGet:
             path: /health/
             port: 8000
-          initialDelaySeconds: 30
-          periodSeconds: 10
-          timeoutSeconds: 5
-          failureThreshold: 3
-        startupProbe:
-          httpGet:
-            path: /health/
-            port: 8000
-          failureThreshold: 30
+          initialDelaySeconds: 20
           periodSeconds: 10
 
 ---
@@ -96,36 +73,40 @@ metadata:
   name: careerlift-service
 spec:
   type: LoadBalancer
+  ports:
+  - port: 80
+    targetPort: 8000
   selector:
     app: careerlift
-  ports:
-  - protocol: TCP
-    port: 80
-    targetPort: 8000
 
 ---
-# (Optional) MySQL service - only keep if MySQL is a k8s service in same namespace
 apiVersion: v1
 kind: Service
 metadata:
   name: careerlift-mysql
 spec:
-  selector:
-    app: careerlift-mysql
   ports:
-  - protocol: TCP
-    port: 3306
-    targetPort: 3306
+  - port: 3306
+  selector:
+    app: careerlift
 
 ---
-# PVC for MySQL (only if you run MySQL in cluster)
 apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
   name: mysql-pv-claim
 spec:
   accessModes:
-    - ReadWriteOnce
+  - ReadWriteOnce
   resources:
     requests:
       storage: 5Gi
+
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: nexus-registry-credentials
+type: kubernetes.io/dockerconfigjson
+data:
+  .dockerconfigjson: e30K

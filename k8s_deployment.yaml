@@ -33,38 +33,54 @@ spec:
             memory: 512Mi
         env:
         - name: DEBUG
-          value: "0"
+          value: "1"  # Enable debug for troubleshooting
         - name: SECRET_KEY
           valueFrom:
             secretKeyRef:
-              name: careerlift-secrets
+              name: career-secret
               key: secret-key
+        # Database configuration using existing career-secret
+        - name: DB_ENGINE
+          valueFrom:
+            secretKeyRef:
+              name: career-secret
+              key: DB_ENGINE
+        - name: DB_HOST
+          valueFrom:
+            secretKeyRef:
+              name: career-secret
+              key: DB_HOST
         - name: DB_NAME
-          value: careerlift
+          valueFrom:
+            secretKeyRef:
+              name: career-secret
+              key: DB_NAME
         - name: DB_USER
           valueFrom:
             secretKeyRef:
-              name: careerlift-secrets
-              key: db-user
+              name: career-secret
+              key: DB_USER
         - name: DB_PASSWORD
           valueFrom:
             secretKeyRef:
-              name: careerlift-secrets
-              key: db-password
-        - name: DB_HOST
-          value: careerlift-mysql
+              name: career-secret
+              key: DB_PASSWORD
         - name: DB_PORT
-          value: "3306"
+          valueFrom:
+            secretKeyRef:
+              name: career-secret
+              key: DB_PORT
+        - name: DATABASE_URL
+          value: "$(DB_ENGINE)://$(DB_USER):$(DB_PASSWORD)@$(DB_HOST):$(DB_PORT)/$(DB_NAME)"
         livenessProbe:
           httpGet:
             path: /health/
             port: 8000
             scheme: HTTP
-          initialDelaySeconds: 60
+          initialDelaySeconds: 180  # Increased initial delay
           periodSeconds: 10
           timeoutSeconds: 5
           failureThreshold: 3
-          successThreshold: 1
         readinessProbe:
           httpGet:
             path: /health/
@@ -74,39 +90,13 @@ spec:
           periodSeconds: 10
           timeoutSeconds: 5
           failureThreshold: 3
-          successThreshold: 1
-      
-      # Database container
-      - name: mysql
-        image: mysql:8.0
-        env:
-        - name: MYSQL_ROOT_PASSWORD
-          valueFrom:
-            secretKeyRef:
-              name: careerlift-secrets
-              key: db-root-password
-        - name: MYSQL_DATABASE
-          value: careerlift
-        - name: MYSQL_USER
-          valueFrom:
-            secretKeyRef:
-              name: careerlift-secrets
-              key: db-user
-        - name: MYSQL_PASSWORD
-          valueFrom:
-            secretKeyRef:
-              name: careerlift-secrets
-              key: db-password
-        ports:
-        - containerPort: 3306
-        volumeMounts:
-        - name: mysql-persistent-storage
-          mountPath: /var/lib/mysql
-      
-      volumes:
-      - name: mysql-persistent-storage
-        persistentVolumeClaim:
-          claimName: mysql-pv-claim
+        startupProbe:
+          httpGet:
+            path: /health/
+            port: 8000
+            scheme: HTTP
+          failureThreshold: 30  # Allow up to 5 minutes for startup
+          periodSeconds: 10
 
 ---
 # Service

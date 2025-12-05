@@ -20,7 +20,7 @@ spec:
       - name: nexus-registry-credentials
       containers:
       - name: careerlift
-        image: nexus-service-for-docker-hosted-registry.nexus.svc.cluster.local:8085/careerlift/careerlift-app:latest
+        image: 127.0.0.1:30085/careerlift/careerlift-app:latest
         imagePullPolicy: Always
         ports:
         - containerPort: 8000
@@ -39,17 +39,7 @@ spec:
             secretKeyRef:
               name: career-secret
               key: secret-key
-        # Database configuration using existing career-secret
-        - name: DB_ENGINE
-          valueFrom:
-            secretKeyRef:
-              name: career-secret
-              key: DB_ENGINE
-        - name: DB_HOST
-          valueFrom:
-            secretKeyRef:
-              name: career-secret
-              key: DB_HOST
+        # Database configuration using secrets
         - name: DB_NAME
           valueFrom:
             secretKeyRef:

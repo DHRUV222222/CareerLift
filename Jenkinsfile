@@ -165,14 +165,21 @@ spec:
         always {
             container('dind') {
                 sh 'docker system prune -f'
+                // Clean up workspace
+                sh 'rm -rf * .* || true'
             }
-            cleanWs()
+            // Clean workspace using deleteDir instead of cleanWs
+            deleteDir()
         }
         success {
             echo "✅ Pipeline Completed Successfully!"
         }
         failure {
-            echo "❌ Pipeline Failed!"
+            echo "❌ Pipeline Failed! Check the logs above for details."
+        }
+        cleanup {
+            // Clean up any remaining resources
+            echo 'Cleaning up workspace...'
         }
     }
 }

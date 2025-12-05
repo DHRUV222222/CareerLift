@@ -179,16 +179,59 @@ spec:
         stage('Deploy to Kubernetes') {
             steps {
                 container('kubectl') {
-                    sh """
-                        kubectl get namespace ${KUBE_NAMESPACE} || kubectl create namespace ${KUBE_NAMESPACE}
+                    script {
+                        try {
+                            // Create namespace if it doesn't exist
+                            sh """
+                                if ! kubectl get namespace ${KUBE_NAMESPACE} >/dev/null 2>&1; then
+                                    echo "Creating namespace ${KUBE_NAMESPACE}..."
+                                    kubectl create namespace ${KUBE_NAMESPACE}
+                                fi
+                            """
 
-                        kubectl apply -f k8s_deployment.yaml -n ${KUBE_NAMESPACE}
+                            // Apply the deployment
+                            echo "Applying Kubernetes manifests..."
+                            sh "kubectl apply -f k8s_deployment.yaml -n ${KUBE_NAMESPACE}"
 
-                        kubectl set image deployment/careerlift \
-                            careerlift=${DOCKER_IMAGE} -n ${KUBE_NAMESPACE}
+                            // Update the image
+                            echo "Updating deployment image to ${DOCKER_IMAGE}..."
+                            sh """
+                                kubectl set image deployment/careerlift \
+                                    careerlift=${DOCKER_IMAGE} -n ${KUBE_NAMESPACE} --record
+                            """
 
-                        kubectl rollout status deployment/careerlift -n ${KUBE_NAMESPACE} --timeout=300s
-                    """
+                            // Wait for rollout with increased timeout
+                            echo "Waiting for deployment to complete (timeout: 10 minutes)..."
+                            def rolloutStatus = sh(
+                                script: "kubectl rollout status deployment/careerlift -n ${KUBE_NAMESPACE} --timeout=600s",
+                                returnStatus: true
+                            )
+
+                            if (rolloutStatus != 0) {
+                                // If rollout fails, get more details
+                                echo "❌ Deployment failed. Getting more details..."
+                                sh """
+                                    kubectl describe deployment/careerlift -n ${KUBE_NAMESPACE}
+                                    kubectl get pods -n ${KUBE_NAMESPACE}
+                                    kubectl logs -l app=careerlift -n ${KUBE_NAMESPACE} --tail=50
+                                """
+                                error("❌ Deployment failed. Check the logs above for details.")
+                            } else {
+                                echo "✅ Deployment successful!"
+                            }
+
+                        } catch (err) {
+                            echo "❌ Error during deployment: ${err.message}"
+                            // Get pod logs if available
+                            sh """
+                                echo "Current pods:"
+                                kubectl get pods -n ${KUBE_NAMESPACE} || true
+                                echo "\\nPod logs:"
+                                kubectl logs -l app=careerlift -n ${KUBE_NAMESPACE} --tail=50 || true
+                            """
+                            throw err
+                        }
+                    }
                 }
             }
         }

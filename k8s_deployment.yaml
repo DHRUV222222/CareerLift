@@ -172,4 +172,5 @@ type: kubernetes.io/dockerconfigjson
 metadata:
   name: nexus-registry-credentials
 data:
-  .dockerconfigjson: $(echo -n '{"auths":{"nexus-service-for-docker-hosted-registry.nexus.svc.cluster.local:8085":{"username":"admin","password":"Changeme@2025","auth":"YWRtaW46Q2hhbmdlbWVA"}}}' | base64 -w0)
+  # This is a base64-encoded empty JSON object {}
+  .dockerconfigjson: e30K

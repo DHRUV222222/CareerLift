@@ -6,7 +6,6 @@ apiVersion: v1
 kind: Pod
 spec:
   containers:
-
   - name: sonar-scanner
     image: sonarsource/sonar-scanner-cli
     command: ["cat"]
@@ -56,7 +55,6 @@ spec:
         DOCKER_IMAGE = "${NEXUS_REGISTRY}/careerlift/careerlift-app:${BUILD_NUMBER}"
         KUBE_NAMESPACE = 'careerlift-ns'
 
-        // SonarQube configuration
         SONAR_ANALYSIS = 'true'
         SONAR_HOST = 'http://my-sonarqube-sonarqube.sonarqube.svc.cluster.local:9000'
         SONAR_PROJECT_KEY = '2401185_CareerLift'
@@ -103,23 +101,18 @@ spec:
             when {
                 environment name: 'SONAR_ANALYSIS', value: 'true'
             }
-
             steps {
                 container('sonar-scanner') {
-                    script {
-                        echo "🔍 Running SonarQube scan..."
-
-                        sh """
-                            sonar-scanner \
-                              -Dsonar.projectKey=${SONAR_PROJECT_KEY} \
-                              -Dsonar.projectName=\"${SONAR_PROJECT_NAME}\" \
-                              -Dsonar.host.url=${SONAR_HOST} \
-                              -Dsonar.token=${SONAR_TOKEN} \
-                              -Dsonar.sources=. \
-                              -Dsonar.python.coverage.reportPaths=coverage.xml \
-                              -Dsonar.python.version=3.10
-                        """
-                    }
+                    sh """
+                        sonar-scanner \
+                          -Dsonar.projectKey=${SONAR_PROJECT_KEY} \
+                          -Dsonar.projectName=\"${SONAR_PROJECT_NAME}\" \
+                          -Dsonar.host.url=${SONAR_HOST} \
+                          -Dsonar.token=${SONAR_TOKEN} \
+                          -Dsonar.sources=. \
+                          -Dsonar.python.coverage.reportPaths=coverage.xml \
+                          -Dsonar.python.version=3.10
+                    """
                 }
             }
         }
@@ -150,36 +143,16 @@ spec:
         stage('Deploy to Kubernetes') {
             steps {
                 container('kubectl') {
-                    script {
+                    sh """
+                        kubectl apply -f k8s_deployment.yaml -n ${KUBE_NAMESPACE}
 
-                        echo "Deploying to Kubernetes..."
+                        kubectl set image deployment/careerlift \
+                            careerlift=${DOCKER_IMAGE} -n ${KUBE_NAMESPACE}
 
-                        sh """
-                            kubectl apply -f k8s_deployment.yaml -n ${KUBE_NAMESPACE}
-
-                            kubectl set image deployment/careerlift \
-                                careerlift=${DOCKER_IMAGE} -n ${KUBE_NAMESPACE}
-
-                            kubectl rollout status deployment/careerlift -n ${KUBE_NAMESPACE} --timeout=600s
-                        """
-                    }
+                        kubectl rollout status deployment/careerlift -n ${KUBE_NAMESPACE} --timeout=600s
+                    """
                 }
             }
-        }
-    }
-
-    post {
-        always {
-            container('dind') {
-                sh 'docker system prune -f'
-            }
-            deleteDir()
-        }
-        success {
-            echo "✅ Pipeline Completed Successfully!"
-        }
-        failure {
-            echo "❌ Pipeline Failed!"
         }
     }
 }

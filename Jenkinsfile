@@ -133,18 +133,26 @@ spec:
         }
 
         stage('Login to Nexus Registry') {
+            environment {
+                NEXUS_REGISTRY = 'nexus-service-for-docker-hosted-registry.nexus.svc.cluster.local:8085'
+                NEXUS_USER = 'admin'
+                NEXUS_PASSWORD = 'Changeme@2025'
+            }
             steps {
                 container('dind') {
-                    withCredentials([
-                        usernamePassword(
-                            credentialsId: 'nexus-credentials',
-                            usernameVariable: 'NEXUS_USER',
-                            passwordVariable: 'NEXUS_PASSWORD'
-                        )
-                    ]) {
-                        sh '''
-                            docker login ${NEXUS_URL} -u $NEXUS_USER -p $NEXUS_PASSWORD
-                        '''
+                    script {
+                        try {
+                            echo "🔑 Attempting to log in to Nexus registry..."
+                            sh """
+                                if ! echo "$NEXUS_PASSWORD" | docker login ${NEXUS_REGISTRY} -u $NEXUS_USER --password-stdin; then
+                                    echo "❌ Failed to log in to Nexus registry"
+                                    exit 1
+                                fi
+                                echo "✅ Successfully logged in to Nexus registry"
+                            """
+                        } catch (err) {
+                            error "❌ Nexus registry login failed: ${err.message}"
+                        }
                     }
                 }
             }

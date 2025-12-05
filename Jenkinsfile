@@ -97,18 +97,37 @@ spec:
         }
 
         stage('SonarQube Analysis') {
+            environment {
+                SONAR_HOST = 'http://my-sonarqube-sonarqube.sonarqube.svc.cluster.local:9000'
+                SONAR_PROJECT_KEY = '2401185_CareerLift'
+                SONAR_PROJECT_NAME = 'CareerLift'
+            }
             steps {
                 container('sonar-scanner') {
-                    sh """
-                        sonar-scanner \
-                            -Dsonar.projectKey=2401185-careerlift \
-                            -Dsonar.projectName=careerlift \
-                            -Dsonar.host.url=http://my-sonarqube-sonarqube.sonarqube.svc.cluster.local:9000 \
-                            -Dsonar.token=${SONAR_TOKEN} \
-                            -Dsonar.sources=. \
-                            -Dsonar.python.coverage.reportPaths=coverage.xml \
-                            -Dsonar.python.version=3.10
-                    """
+                    script {
+                        try {
+                            echo "🔍 Starting SonarQube analysis..."
+                            echo "Project: ${SONAR_PROJECT_KEY}"
+                            echo "Host: ${SONAR_HOST}"
+                            
+                            sh """
+                                sonar-scanner \
+                                    -Dsonar.projectKey=${SONAR_PROJECT_KEY} \
+                                    -Dsonar.projectName="${SONAR_PROJECT_NAME}" \
+                                    -Dsonar.host.url=${SONAR_HOST} \
+                                    -Dsonar.token=${SONAR_TOKEN} \
+                                    -Dsonar.sources=. \
+                                    -Dsonar.python.coverage.reportPaths=coverage.xml \
+                                    -Dsonar.python.version=3.10 \
+                                    -Dsonar.sourceEncoding=UTF-8 \
+                                    -Dsonar.scm.disabled=true
+                            """
+                            
+                            echo "✅ SonarQube analysis completed successfully"
+                        } catch (err) {
+                            error "❌ SonarQube analysis failed: ${err.message}"
+                        }
+                    }
                 }
             }
         }

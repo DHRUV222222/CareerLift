@@ -130,14 +130,18 @@ spec:
       storage: 5Gi
 
 ---
-# Secret (example - replace with your actual secrets)
+# Secret for application credentials
 apiVersion: v1
 kind: Secret
 metadata:
   name: careerlift-secrets
 type: Opaque
 data:
-  secret-key: "base64-encoded-secret-key"
-  db-user: "base64-encoded-db-user"
-  db-password: "base64-encoded-db-password"
-  db-root-password: "base64-encoded-root-password"
+  # Generate with: echo -n 'your-secret-key' | base64
+  secret-key: "eW91ci1zZWNyZXQta2V5"
+  # Database user
+  db-user: "Y2FyZWVybGlmdA=="  # careerlift
+  # Database password
+  db-password: "cGFzc3dvcmQxMjM="  # password123
+  # Root password for MySQL
+  db-root-password: "cm9vdHBhc3N3b3Jk"  # rootpassword

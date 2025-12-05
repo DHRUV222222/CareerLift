@@ -52,13 +52,11 @@ spec:
     }
 
     environment {
-        NEXUS_URL = "nexus-service-for-docker-hosted-registry.nexus.svc.cluster.local:8085"
-        IMAGE_NAME = "careerlift-app"
-        DOCKER_IMAGE = "${NEXUS_URL}/careerlift/${IMAGE_NAME}:${BUILD_NUMBER}"
-        KUBE_NAMESPACE = "careerlift-ns"
-
-        // 🔥 Updated Sonar Token
-        SONAR_TOKEN = "sqp_e70dca117aaa445364015a3235a50530a178ae09"
+        NEXUS_REGISTRY = 'nexus-service-for-docker-hosted-registry.nexus.svc.cluster.local:8085'
+        DOCKER_IMAGE = "${NEXUS_REGISTRY}/careerlift/careerlift-app:${BUILD_NUMBER}"
+        KUBE_NAMESPACE = 'careerlift-ns'
+        SONAR_TOKEN = credentials('sonar-token')
+        IMAGE_TAG = "${BUILD_NUMBER}"
     }
 
     stages {

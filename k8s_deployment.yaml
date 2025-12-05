@@ -16,11 +16,21 @@ spec:
       labels:
         app: careerlift
     spec:
+      imagePullSecrets:
+      - name: nexus-registry-credentials
       containers:
       - name: careerlift
-        image: your-dockerhub-username/careerlift:${BUILD_NUMBER}
+        image: nexus-service-for-docker-hosted-registry.nexus.svc.cluster.local:8085/careerlift/careerlift-app:latest
+        imagePullPolicy: Always
         ports:
         - containerPort: 8000
+        resources:
+          requests:
+            cpu: 100m
+            memory: 256Mi
+          limits:
+            cpu: 500m
+            memory: 512Mi
         env:
         - name: DEBUG
           value: "0"
@@ -49,14 +59,22 @@ spec:
           httpGet:
             path: /health/
             port: 8000
-          initialDelaySeconds: 30
+            scheme: HTTP
+          initialDelaySeconds: 60
           periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 3
+          successThreshold: 1
         readinessProbe:
           httpGet:
             path: /health/
             port: 8000
+            scheme: HTTP
           initialDelaySeconds: 30
           periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 3
+          successThreshold: 1
       
       # Database container
       - name: mysql
@@ -145,3 +163,13 @@ data:
   db-password: "cGFzc3dvcmQxMjM="  # password123
   # Root password for MySQL
   db-root-password: "cm9vdHBhc3N3b3Jk"  # rootpassword
+
+---
+# Secret for Nexus registry credentials
+apiVersion: v1
+kind: Secret
+type: kubernetes.io/dockerconfigjson
+metadata:
+  name: nexus-registry-credentials
+data:
+  .dockerconfigjson: $(echo -n '{"auths":{"nexus-service-for-docker-hosted-registry.nexus.svc.cluster.local:8085":{"username":"admin","password":"Changeme@2025","auth":"YWRtaW46Q2hhbmdlbWVA"}}}' | base64 -w0)

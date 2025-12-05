@@ -1,163 +1,189 @@
 pipeline {
-    agent {
-        kubernetes {
-            yaml '''
+  agent {
+    kubernetes {
+      yaml """
 apiVersion: v1
 kind: Pod
 spec:
   containers:
-
   - name: sonar-scanner
     image: sonarsource/sonar-scanner-cli
-    command: ["cat"]
+    command: ['cat']
     tty: true
 
   - name: kubectl
     image: bitnami/kubectl:latest
-    command: ["cat"]
+    command: ['cat']
     tty: true
     securityContext:
       runAsUser: 0
       readOnlyRootFilesystem: false
     env:
-    - name: KUBECONFIG
-      value: /kube/config
+      - name: KUBECONFIG
+        value: /kube/config
     volumeMounts:
-    - name: kubeconfig-secret
-      mountPath: /kube/config
-      subPath: kubeconfig
+      - name: kubeconfig-secret
+        mountPath: /kube/config
+        subPath: kubeconfig
 
   - name: dind
-    image: docker:dind
+    image: docker:24-dind
     securityContext:
       privileged: true
     env:
-    - name: DOCKER_TLS_CERTDIR
-      value: ""
+      - name: DOCKER_TLS_CERTDIR
+        value: ""
+    # make dockerd listen on tcp so other container in same pod can talk to it
+    command:
+      - "dockerd-entrypoint.sh"
+      - "--host=tcp://0.0.0.0:2375"
+    tty: true
     volumeMounts:
-    - name: docker-config
-      mountPath: /etc/docker/daemon.json
-      subPath: daemon.json
+      - name: docker-config
+        mountPath: /etc/docker/daemon.json
+        subPath: daemon.json
+
+  - name: docker
+    image: docker:24-cli
+    command: ['cat']
+    tty: true
+    env:
+      - name: DOCKER_HOST
+        value: "tcp://localhost:2375"
 
   volumes:
-  - name: docker-config
-    configMap:
-      name: docker-daemon-config
+    - name: docker-config
+      configMap:
+        name: docker-daemon-config
+    - name: kubeconfig-secret
+      secret:
+        secretName: kubeconfig-secret
+"""
+    }
+  }
 
-  - name: kubeconfig-secret
-    secret:
-      secretName: kubeconfig-secret
-'''
-        }
+  environment {
+    NEXUS_REGISTRY = 'nexus-service-for-docker-hosted-registry.nexus.svc.cluster.local:8085'
+    IMAGE_NAME = 'careerlift-app'
+    IMAGE_TAG  = "${BUILD_NUMBER}"
+    DOCKER_IMAGE = "${NEXUS_REGISTRY}/careerlift/${IMAGE_NAME}:${IMAGE_TAG}"
+    KUBE_NAMESPACE = 'careerlift-ns'
+
+    // Sonar (optional)
+    SONAR_ANALYSIS = 'true'
+    SONAR_HOST = 'http://my-sonarqube-sonarqube.sonarqube.svc.cluster.local:9000'
+    SONAR_PROJECT_KEY = '2401185_CareerLift'
+    SONAR_PROJECT_NAME = 'CareerLift'
+    SONAR_TOKEN = credentials('sonar-token') // use Jenkins credentials plugin (string) id 'sonar-token'
+  }
+
+  stages {
+    stage('Checkout') {
+      steps {
+        container('sonar-scanner') { checkout scm }
+      }
     }
 
-    environment {
-        // Jenkins pushes to INTERNAL Nexus registry
-        NEXUS_REGISTRY = 'nexus-service-for-docker-hosted-registry.nexus.svc.cluster.local:8085'
+    stage('Build Docker Image') {
+      steps {
+        container('docker') {
+          sh '''
+            echo "Waiting for dockerd..."
+            # simple wait loop to ensure dind's dockerd accepts connections
+            n=0
+            until docker info >/dev/null 2>&1; do
+              sleep 1
+              n=$((n+1))
+              if [ $n -gt 60 ]; then
+                echo "dockerd did not become available"
+                docker info || true
+                exit 1
+              fi
+            done
 
-        DOCKER_IMAGE = "${NEXUS_REGISTRY}/careerlift/careerlift-app:${BUILD_NUMBER}"
-        KUBE_NAMESPACE = 'careerlift-ns'
-
-        // SonarQube settings
-        SONAR_ANALYSIS = 'true'
-        SONAR_HOST = 'http://my-sonarqube-sonarqube.sonarqube.svc.cluster.local:9000'
-        SONAR_PROJECT_KEY = '2401185_CareerLift'
-        SONAR_PROJECT_NAME = 'CareerLift'
-        SONAR_TOKEN = 'sqp_e70dca117aaa445364015a3235a50530a178ae09'
+            echo "Building image: ${IMAGE_NAME}:latest"
+            docker build -t ${IMAGE_NAME}:latest .
+            docker image ls --format "{{.Repository}}:{{.Tag}}\t{{.ID}}\t{{.Size}}"
+          '''
+        }
+      }
     }
 
-    stages {
-
-        stage('Checkout Code') {
-            steps {
-                container('sonar-scanner') {
-                    checkout scm
-                }
-            }
+    stage('Run Tests') {
+      steps {
+        container('docker') {
+          sh '''
+            # run tests inside container image
+            docker run --rm ${IMAGE_NAME}:latest pytest --disable-warnings --ds=careerlift.settings --junitxml=reports/junit.xml --cov=. --cov-report=xml:coverage.xml || true
+          '''
         }
-
-        stage('Build Docker Image') {
-            steps {
-                container('dind') {
-                    sh '''
-                        sleep 5
-                        echo "Building docker image: careerlift-app:latest"
-                        docker build -t careerlift-app:latest .
-                    '''
-                }
-            }
-        }
-
-        stage('Run Tests in Docker') {
-            steps {
-                container('dind') {
-                    sh '''
-                        docker run --rm careerlift-app:latest \
-                        pytest --disable-warnings --ds=careerlift.settings \
-                        --junitxml=reports/junit.xml \
-                        --cov=. --cov-report=xml:coverage.xml || true
-                    '''
-                }
-            }
-        }
-
-        stage('SonarQube Analysis') {
-            when {
-                environment name: 'SONAR_ANALYSIS', value: 'true'
-            }
-
-            steps {
-                container('sonar-scanner') {
-                    sh """
-                        sonar-scanner \
-                          -Dsonar.projectKey=${SONAR_PROJECT_KEY} \
-                          -Dsonar.projectName=${SONAR_PROJECT_NAME} \
-                          -Dsonar.host.url=${SONAR_HOST} \
-                          -Dsonar.token=${SONAR_TOKEN} \
-                          -Dsonar.sources=. \
-                          -Dsonar.python.coverage.reportPaths=coverage.xml \
-                          -Dsonar.python.version=3.10
-                    """
-                }
-            }
-        }
-
-        stage('Login to Nexus Registry') {
-            steps {
-                container('dind') {
-                    sh """
-                        echo "Logging in to Nexus registry..."
-                        echo "Changeme@2025" | docker login ${NEXUS_REGISTRY} -u admin --password-stdin
-                    """
-                }
-            }
-        }
-
-        stage('Tag & Push Image') {
-            steps {
-                container('dind') {
-                    sh """
-                        docker tag careerlift-app:latest ${DOCKER_IMAGE}
-                        docker push ${DOCKER_IMAGE}
-                    """
-                }
-            }
-        }
-
-        stage('Deploy to Kubernetes') {
-            steps {
-                container('kubectl') {
-                    sh """
-                        kubectl apply -f k8s_deployment.yaml -n ${KUBE_NAMESPACE}
-
-                        kubectl set image deployment/careerlift \
-                            careerlift=${DOCKER_IMAGE} -n ${KUBE_NAMESPACE}
-
-                        kubectl rollout status deployment/careerlift -n ${KUBE_NAMESPACE} --timeout=600s
-                    """
-                }
-            }
-        }
-
+      }
     }
+
+    stage('SonarQube Analysis') {
+      when { environment name: 'SONAR_ANALYSIS', value: 'true' }
+      steps {
+        container('sonar-scanner') {
+          sh """
+            sonar-scanner \
+              -Dsonar.projectKey=${SONAR_PROJECT_KEY} \
+              -Dsonar.projectName=${SONAR_PROJECT_NAME} \
+              -Dsonar.host.url=${SONAR_HOST} \
+              -Dsonar.token=${SONAR_TOKEN} \
+              -Dsonar.sources=. \
+              -Dsonar.python.coverage.reportPaths=coverage.xml \
+              -Dsonar.sourceEncoding=UTF-8
+          """
+        }
+      }
+    }
+
+    stage('Login to Nexus') {
+      steps {
+        container('docker') {
+          withCredentials([usernamePassword(credentialsId: 'nexus-credentials', usernameVariable: 'NEXUS_USER', passwordVariable: 'NEXUS_PASS')]) {
+            sh '''
+              echo "${NEXUS_PASS}" | docker login ${NEXUS_REGISTRY} -u "${NEXUS_USER}" --password-stdin
+            '''
+          }
+        }
+      }
+    }
+
+    stage('Tag & Push') {
+      steps {
+        container('docker') {
+          sh '''
+            docker tag ${IMAGE_NAME}:latest ${DOCKER_IMAGE}
+            docker push ${DOCKER_IMAGE}
+            docker image ls --format "{{.Repository}}:{{.Tag}}\t{{.ID}}\t{{.Size}}"
+          '''
+        }
+      }
+    }
+
+    stage('Deploy to Kubernetes') {
+      steps {
+        container('kubectl') {
+          sh """
+            kubectl get namespace ${KUBE_NAMESPACE} || kubectl create namespace ${KUBE_NAMESPACE}
+            kubectl apply -f k8s_deployment.yaml -n ${KUBE_NAMESPACE}
+            kubectl set image deployment/careerlift careerlift=${DOCKER_IMAGE} -n ${KUBE_NAMESPACE} --record
+            kubectl rollout status deployment/careerlift -n ${KUBE_NAMESPACE} --timeout=600s
+          """
+        }
+      }
+    }
+  }
+
+  post {
+    always {
+      container('docker') {
+        sh 'docker system prune -f || true'
+      }
+      deleteDir()
+    }
+    success { echo "✅ Pipeline succeeded" }
+    failure { echo "❌ Pipeline failed — check logs" }
+  }
 }

@@ -7,58 +7,43 @@ kind: Pod
 spec:
   containers:
 
-  # Sonar Scanner
   - name: sonar-scanner
     image: sonarsource/sonar-scanner-cli
     command: ["cat"]
     tty: true
     volumeMounts:
-    - name: workspace-volume
-      mountPath: /home/jenkins/agent
+    - mountPath: /home/jenkins/agent
+      name: workspace-volume
 
-  # Kubectl
   - name: kubectl
     image: bitnami/kubectl:latest
     command: ["cat"]
     tty: true
-    env:
-    - name: KUBECONFIG
-      value: /kube/config
     securityContext:
       runAsUser: 0
       readOnlyRootFilesystem: false
+    env:
+    - name: KUBECONFIG
+      value: /kube/config
     volumeMounts:
     - name: kubeconfig-secret
       mountPath: /kube/config
       subPath: kubeconfig
-    - name: workspace-volume
-      mountPath: /home/jenkins/agent
+    - mountPath: /home/jenkins/agent
+      name: workspace-volume
 
-  # Docker-in-Docker FIXED
   - name: dind
-    image: docker:dind
+    image: docker:20.10-dind
     securityContext:
       privileged: true
     env:
     - name: DOCKER_TLS_CERTDIR
       value: ""
-    - name: DOCKER_HOST
-      value: "tcp://127.0.0.1:2375"
-    ports:
-    - containerPort: 2375
     volumeMounts:
     - name: docker-lib
       mountPath: /var/lib/docker
-    - name: workspace-volume
-      mountPath: /home/jenkins/agent
-
-  # Jenkins agent
-  - name: jnlp
-    image: jenkins/inbound-agent:latest
-    args: ["$(JENKINS_SECRET)", "$(JENKINS_NAME)"]
-    volumeMounts:
-    - name: workspace-volume
-      mountPath: /home/jenkins/agent
+    - mountPath: /home/jenkins/agent
+      name: workspace-volume
 
   volumes:
   - name: docker-lib
@@ -68,25 +53,24 @@ spec:
   - name: kubeconfig-secret
     secret:
       secretName: kubeconfig-secret
-
 '''
         }
     }
 
     environment {
-        # Registry inside cluster
-        NEXUS_INTERNAL = "nexus-service-for-docker-hosted-registry.nexus.svc.cluster.local:8085"
+        INTERNAL_REGISTRY = "127.0.0.1:30085"
+        NEXUS_REGISTRY = "nexus-service-for-docker-hosted-registry.nexus.svc.cluster.local:8085"
 
-        # Internal Nexus for Jenkins build
-        DOCKER_IMAGE = "${NEXUS_INTERNAL}/careerlift/careerlift-app:${BUILD_NUMBER}"
+        IMAGE_NAME = "careerlift-app"
+        IMAGE_TAG = "${BUILD_NUMBER}"
 
-        # Sonar
-        SONAR_HOST = "http://my-sonarqube-sonarqube.sonarqube.svc.cluster.local:9000"
-        SONAR_PROJECT_KEY = "2401185_CareerLift"
-        SONAR_PROJECT_NAME = "CareerLift"
-        SONAR_TOKEN = "sqp_e70dca117aaa445364015a3235a50530a178ae09"
+        PUSH_IMAGE = "${INTERNAL_REGISTRY}/careerlift/${IMAGE_NAME}:${IMAGE_TAG}"
 
         KUBE_NAMESPACE = "careerlift-ns"
+
+        SONAR_HOST = "http://my-sonarqube-sonarqube.sonarqube.svc.cluster.local:9000"
+        SONAR_PROJECT_KEY = "2401185_CareerLift"
+        SONAR_TOKEN = "sqp_e70dca117aaa445364015a3235a50530a178ae09"
     }
 
     stages {
@@ -103,12 +87,8 @@ spec:
             steps {
                 container('dind') {
                     sh '''
-                        echo "Waiting for Dockerd to start..."
-                        sleep 10
-                        
-                        docker info || (echo "Docker not running!" && exit 1)
-
                         echo "Building Docker image..."
+                        sleep 5
                         docker build -t careerlift-app:latest .
                     '''
                 }
@@ -120,27 +100,26 @@ spec:
                 container('sonar-scanner') {
                     sh """
                         sonar-scanner \
-                          -Dsonar.projectKey=${SONAR_PROJECT_KEY} \
-                          -Dsonar.projectName=${SONAR_PROJECT_NAME} \
-                          -Dsonar.host.url=${SONAR_HOST} \
-                          -Dsonar.token=${SONAR_TOKEN} \
-                          -Dsonar.sources=. \
-                          -Dsonar.python.coverage.reportPaths=coverage.xml
+                            -Dsonar.projectKey=${SONAR_PROJECT_KEY} \
+                            -Dsonar.host.url=${SONAR_HOST} \
+                            -Dsonar.token=${SONAR_TOKEN} \
+                            -Dsonar.sources=. \
+                            -Dsonar.python.version=3.10
                     """
                 }
             }
         }
 
-        stage('Push Image to Nexus') {
+        stage('Push Image') {
             steps {
                 container('dind') {
-                    sh """
-                        echo "Logging in..."
-                        echo "Changeme@2025" | docker login ${NEXUS_INTERNAL} -u admin --password-stdin
+                    sh '''
+                        echo "Tagging image..."
+                        docker tag careerlift-app:latest ''' + "${PUSH_IMAGE}" + '''
 
-                        docker tag careerlift-app:latest ${DOCKER_IMAGE}
-                        docker push ${DOCKER_IMAGE}
-                    """
+                        echo "Pushing image to internal registry..."
+                        docker push ''' + "${PUSH_IMAGE}" + '''
+                    '''
                 }
             }
         }
@@ -150,7 +129,10 @@ spec:
                 container('kubectl') {
                     sh """
                         kubectl apply -f k8s_deployment.yaml -n ${KUBE_NAMESPACE}
-                        kubectl set image deployment/careerlift careerlift=${DOCKER_IMAGE} -n ${KUBE_NAMESPACE}
+
+                        kubectl set image deployment/careerlift \
+                          careerlift=${PUSH_IMAGE} -n ${KUBE_NAMESPACE}
+
                         kubectl rollout status deployment/careerlift -n ${KUBE_NAMESPACE} --timeout=600s
                     """
                 }
@@ -159,11 +141,8 @@ spec:
     }
 
     post {
-        success {
-            echo "✅ Pipeline completed successfully!"
-        }
-        failure {
-            echo "❌ Pipeline failed — check logs"
+        always {
+            echo "Pipeline completed"
         }
     }
 }

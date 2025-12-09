@@ -104,7 +104,7 @@ spec:
                                 kubectl apply -f career-secret.yaml
 
                                 # Wait for rollout
-                                kubectl rollout status deployment/careerlift-app-deployment -n 2401199
+                                kubectl rollout status deployment/careerlift-deployment -n 2401185
                             '''
                         }
                     }

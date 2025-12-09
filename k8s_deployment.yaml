@@ -16,46 +16,65 @@ spec:
         app: careerlift
     spec:
       imagePullSecrets:
-        - name: nexus-registry-credentials
+      - name: nexus-registry-credentials
+
       containers:
-        - name: careerlift
-          # Use the in-cluster Nexus hostname (accessible from k8s)
-          image: nexus-service-for-docker-hosted-registry.nexus.svc.cluster.local:8085/careerlift/careerlift-app:latest
-          imagePullPolicy: Always
-          ports:
-            - containerPort: 8000
-          resources:
-            requests:
-              cpu: 100m
-              memory: 256Mi
-            limits:
-              cpu: 500m
-              memory: 512Mi
-          envFrom:
-            - secretRef:
-                name: career-secret   # use the secret you already created from .env
-          livenessProbe:
-            httpGet:
-              path: /health/
-              port: 8000
-            initialDelaySeconds: 240
-            periodSeconds: 10
-            timeoutSeconds: 5
-            failureThreshold: 3
-          readinessProbe:
-            httpGet:
-              path: /health/
-              port: 8000
-            initialDelaySeconds: 60
-            periodSeconds: 10
-            timeoutSeconds: 5
-            failureThreshold: 3
-          startupProbe:
-            httpGet:
-              path: /health/
-              port: 8000
-            failureThreshold: 30
-            periodSeconds: 10
+      - name: careerlift
+        image: 127.0.0.1:30085/careerlift/careerlift-app:latest
+        imagePullPolicy: Always
+        ports:
+        - containerPort: 8000
+
+        env:
+        - name: DEBUG
+          value: "1"
+
+        - name: SECRET_KEY
+          valueFrom:
+            secretKeyRef:
+              name: career-secret
+              key: secret-key
+
+        - name: DB_NAME
+          valueFrom:
+            secretKeyRef:
+              name: career-secret
+              key: DB_NAME
+
+        - name: DB_USER
+          valueFrom:
+            secretKeyRef:
+              name: career-secret
+              key: DB_USER
+
+        - name: DB_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: career-secret
+              key: DB_PASSWORD
+
+        - name: DB_HOST
+          value: "careerlift-mysql"
+
+        - name: DB_PORT
+          value: "3306"
+
+        - name: DATABASE_URL
+          value: "mysql://$(DB_USER):$(DB_PASSWORD)@$(DB_HOST):$(DB_PORT)/$(DB_NAME)"
+
+        livenessProbe:
+          httpGet:
+            path: /health/
+            port: 8000
+          initialDelaySeconds: 180
+          periodSeconds: 10
+
+        readinessProbe:
+          httpGet:
+            path: /health/
+            port: 8000
+          initialDelaySeconds: 20
+          periodSeconds: 10
 
 ---
 apiVersion: v1
@@ -65,19 +84,27 @@ metadata:
 spec:
   type: LoadBalancer
   ports:
-    - port: 80
-      targetPort: 8000
+  - port: 80
+    targetPort: 8000
   selector:
     app: careerlift
 
 ---
-# MySQL service (if you run DB in same cluster; update selector to match your mysql deployment)
 apiVersion: v1
 kind: Service
 metadata:
   name: careerlift-mysql
 spec:
   ports:
-    - port: 3306
+  - port: 3306
   selector:
     app: careerlift-mysql
+
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: nexus-registry-credentials
+type: kubernetes.io/dockerconfigjson
+data:
+  .dockerconfigjson: e30K

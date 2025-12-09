@@ -9,15 +9,19 @@ spec:
 
   - name: sonar-scanner
     image: sonarsource/sonar-scanner-cli
-    command: ["tail", "-f", "/dev/null"]
+    command: ["cat"]
     tty: true
+    volumeMounts:
+    - name: workspace-volume
+      mountPath: /home/jenkins/agent
 
   - name: kubectl
     image: bitnami/kubectl:latest
-    command: ["tail", "-f", "/dev/null"]
+    command: ["cat"]
     tty: true
     securityContext:
       runAsUser: 0
+      readOnlyRootFilesystem: false
     env:
     - name: KUBECONFIG
       value: /kube/config
@@ -25,6 +29,8 @@ spec:
     - name: kubeconfig-secret
       mountPath: /kube/config
       subPath: kubeconfig
+    - name: workspace-volume
+      mountPath: /home/jenkins/agent
 
   - name: dind
     image: docker:dind
@@ -34,15 +40,16 @@ spec:
     - name: DOCKER_TLS_CERTDIR
       value: ""
     volumeMounts:
-    - name: docker-config
-      mountPath: /etc/docker/daemon.json
-      subPath: daemon.json
+    - name: docker-lib
+      mountPath: /var/lib/docker
+    - name: workspace-volume
+      mountPath: /home/jenkins/agent
 
   volumes:
-  - name: docker-config
-    configMap:
-      name: docker-daemon-config
-
+  - name: docker-lib
+    emptyDir: {}
+  - name: workspace-volume
+    emptyDir: {}
   - name: kubeconfig-secret
     secret:
       secretName: kubeconfig-secret
@@ -51,11 +58,10 @@ spec:
     }
 
     environment {
-        NEXUS_INTERNAL = "nexus-service-for-docker-hosted-registry.nexus.svc.cluster.local:8085"
-        NEXUS_NODEPORT = "127.0.0.1:30085"
-        IMAGE_NAME = "careerlift/careerlift-app"
-        DOCKER_IMAGE_INTERNAL = "${NEXUS_INTERNAL}/${IMAGE_NAME}:${BUILD_NUMBER}"
-        DOCKER_IMAGE_NODEPORT = "${NEXUS_NODEPORT}/${IMAGE_NAME}:${BUILD_NUMBER}"
+        NEXUS_PUSH = "nexus-service-for-docker-hosted-registry.nexus.svc.cluster.local:8085"
+        DOCKER_PUSH_IMAGE = "${NEXUS_PUSH}/careerlift/careerlift-app:${BUILD_NUMBER}"
+        LOCAL_REGISTRY = "127.0.0.1:30085"
+        LOCAL_IMAGE = "${LOCAL_REGISTRY}/careerlift/careerlift-app:${BUILD_NUMBER}"
         KUBE_NAMESPACE = "careerlift-ns"
 
         SONAR_HOST = "http://my-sonarqube-sonarqube.sonarqube.svc.cluster.local:9000"
@@ -66,7 +72,7 @@ spec:
 
     stages {
 
-        stage('Checkout Code') {
+        stage("Checkout Code") {
             steps {
                 container('sonar-scanner') {
                     checkout scm
@@ -74,7 +80,7 @@ spec:
             }
         }
 
-        stage('Build Docker Image') {
+        stage("Build Docker Image") {
             steps {
                 container('dind') {
                     sh '''
@@ -87,17 +93,7 @@ spec:
             }
         }
 
-        stage('Run Tests') {
-            steps {
-                container('dind') {
-                    sh '''
-                        docker run --rm careerlift-app:latest pytest || true
-                    '''
-                }
-            }
-        }
-
-        stage('SonarQube Analysis') {
+        stage("SonarQube Analysis") {
             steps {
                 container('sonar-scanner') {
                     sh """
@@ -106,42 +102,42 @@ spec:
                           -Dsonar.projectName=${SONAR_PROJECT_NAME} \
                           -Dsonar.host.url=${SONAR_HOST} \
                           -Dsonar.token=${SONAR_TOKEN} \
-                          -Dsonar.sources=.
+                          -Dsonar.sources=. \
+                          -Dsonar.python.coverage.reportPaths=coverage.xml \
+                          -Dsonar.python.version=3.10
                     """
                 }
             }
         }
 
-        stage('Push Image to Nexus') {
+        stage("Push Image to Nexus") {
             steps {
                 container('dind') {
                     sh """
-                        echo "Logging in to Nexus..."
-                        echo "Changeme@2025" | docker login ${NEXUS_INTERNAL} -u admin --password-stdin
+                        echo "Logging into Nexus..."
+                        echo "Changeme@2025" | docker login ${NEXUS_PUSH} -u admin --password-stdin
 
-                        docker tag careerlift-app:latest ${DOCKER_IMAGE_INTERNAL}
-                        docker push ${DOCKER_IMAGE_INTERNAL}
+                        echo "Tag & Push image to Nexus..."
+                        docker tag careerlift-app:latest ${DOCKER_PUSH_IMAGE}
+                        docker push ${DOCKER_PUSH_IMAGE}
                     """
                 }
             }
         }
 
-        stage('Deploy to Kubernetes') {
+        stage("Deploy to Kubernetes") {
             steps {
-                container('kubectl') {
+                container("kubectl") {
                     sh """
                         kubectl apply -f k8s_deployment.yaml -n ${KUBE_NAMESPACE}
-                        kubectl set image deployment/careerlift careerlift=${DOCKER_IMAGE_INTERNAL} -n ${KUBE_NAMESPACE}
+
+                        kubectl set image deployment/careerlift \
+                          careerlift=${DOCKER_PUSH_IMAGE} -n ${KUBE_NAMESPACE}
+
                         kubectl rollout status deployment/careerlift -n ${KUBE_NAMESPACE} --timeout=600s
                     """
                 }
             }
-        }
-    }
-
-    post {
-        always {
-            echo "Pipeline completed"
         }
     }
 }

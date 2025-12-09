@@ -98,7 +98,7 @@ spec:
             steps {
                 container('kubectl') {
                     script {
-                        dir('k8s-deployment') {
+                        dir('k8s') {
                             sh '''
                                 # Apply all resources in deployment YAML
                                 kubectl apply -f career-secret.yaml

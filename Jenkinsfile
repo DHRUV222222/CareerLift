@@ -106,6 +106,13 @@ spec:
                                 # Wait for rollout
                                 kubectl rollout status deployment/careerlift-deployment -n 2401185
                             '''
+                            
+                            // ⬇️ Added Timeout Wrapper Here
+                            timeout(time: 5, unit: 'MINUTES') {
+                                sh '''
+                                    kubectl rollout status deployment/careerlift-deployment -n 2401185
+                                '''
+                            }
                         }
                     }
                 }

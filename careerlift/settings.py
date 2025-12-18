@@ -23,6 +23,7 @@ SECRET_KEY = os.getenv('DJANGO_SECRET_KEY', 'django-insecure-default-key')
 DEBUG = os.getenv('DEBUG', 'False') == 'True'
 
 # Allow Kubernetes, Jenkins, Ingress, ClusterIP, NodePort
+SECURE_CROSS_ORIGIN_OPENER_POLICY = None
 ALLOWED_HOSTS = ['*']
 
 # ---------------------------
